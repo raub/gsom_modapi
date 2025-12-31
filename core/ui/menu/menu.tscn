@@ -1,0 +1,27 @@
+[gd_scene load_steps=6 format=3 uid="uid://c7ffsjontvi38"]
+
+[ext_resource type="Script" uid="uid://x1pejlekl77k" path="res://core/ui/menu/menu.gd" id="1_fen44"]
+[ext_resource type="Theme" uid="uid://ba1grsqqlevk3" path="res://core/ui/menu/theme.tres" id="1_nxsuv"]
+[ext_resource type="PackedScene" uid="uid://casxockii53yj" path="res://core/ui/menu/new_game/new_game.tscn" id="2_lbwd4"]
+[ext_resource type="PackedScene" uid="uid://b704n6bggrqdk" path="res://core/ui/menu/background/background.tscn" id="3_st65m"]
+[ext_resource type="PackedScene" uid="uid://37deq30bvtal" path="res://core/ui/menu/main_menu/main_menu.tscn" id="4_b6cet"]
+
+[node name="Menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("1_nxsuv")
+script = ExtResource("1_fen44")
+
+[node name="Background" parent="." instance=ExtResource("3_st65m")]
+layout_mode = 1
+
+[node name="NewGame" parent="." instance=ExtResource("2_lbwd4")]
+visible = false
+layout_mode = 1
+
+[node name="MainMenu" parent="." instance=ExtResource("4_b6cet")]
+layout_mode = 1

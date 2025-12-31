@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GsomModContentRoom" load_steps=2 format=3 uid="uid://cuolqu07hys6k"]
+
+[ext_resource type="Script" uid="uid://cwxmup2ctdoqm" path="res://addons/gsom_modapi/content/mod_content_room.gd" id="1_8pnhb"]
+
+[resource]
+script = ExtResource("1_8pnhb")
+tags = Array[StringName]([&"room"])
+attrs = Dictionary[StringName, Variant]({
+&"biome": &"generic",
+&"difficulty": 1,
+&"size": &"medium"
+})
+caps = Array[StringName]([&"room_chunk", &"spawn_anchor"])
+metadata/_custom_type_script = "uid://cwxmup2ctdoqm"

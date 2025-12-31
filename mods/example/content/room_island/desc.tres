@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="GsomModContentRoom" load_steps=2 format=3 uid="uid://0n7fqnulhja2"]
+
+[ext_resource type="Script" uid="uid://cwxmup2ctdoqm" path="res://addons/gsom_modapi/content/mod_content_room.gd" id="1_42tg1"]
+
+[resource]
+script = ExtResource("1_42tg1")
+tags = Array[StringName]([&"room"])
+caps = Array[StringName]([&"room_chunk", &"spawn_anchor"])
+metadata/_custom_type_script = "uid://cwxmup2ctdoqm"

@@ -1,0 +1,65 @@
+[gd_scene load_steps=3 format=3 uid="uid://37deq30bvtal"]
+
+[ext_resource type="Theme" uid="uid://ba1grsqqlevk3" path="res://core/ui/menu/theme.tres" id="1_4e60q"]
+[ext_resource type="Script" uid="uid://dhufvr4m17qjw" path="res://core/ui/menu/main_menu/main_menu.gd" id="2_4e60q"]
+
+[node name="MainMenu" type="MarginContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_neighbor_top = NodePath("MenuContainer/MenuRows/Quit")
+focus_neighbor_bottom = NodePath("MenuContainer/MenuRows/Continue")
+focus_next = NodePath("MenuContainer/MenuRows/Continue")
+focus_previous = NodePath("MenuContainer/MenuRows/Quit")
+focus_mode = 2
+theme = ExtResource("1_4e60q")
+theme_override_constants/margin_left = 100
+theme_override_constants/margin_top = 162
+theme_override_constants/margin_bottom = 162
+script = ExtResource("2_4e60q")
+
+[node name="MenuContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="MenuRows" type="VBoxContainer" parent="MenuContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Continue" type="Button" parent="MenuContainer/MenuRows"]
+visible = false
+layout_mode = 2
+focus_neighbor_top = NodePath("../Quit")
+focus_neighbor_bottom = NodePath("../NewGame")
+focus_next = NodePath("../NewGame")
+focus_previous = NodePath("../Quit")
+text = "Load game"
+alignment = 0
+
+[node name="NewGame" type="Button" parent="MenuContainer/MenuRows"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Continue")
+focus_neighbor_bottom = NodePath("../Settings")
+focus_next = NodePath("../Settings")
+focus_previous = NodePath("../Continue")
+text = "New game"
+alignment = 0
+
+[node name="Settings" type="Button" parent="MenuContainer/MenuRows"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../NewGame")
+focus_neighbor_bottom = NodePath("../Quit")
+focus_next = NodePath("../Quit")
+focus_previous = NodePath("../NewGame")
+text = "Settings"
+alignment = 0
+
+[node name="Quit" type="Button" parent="MenuContainer/MenuRows"]
+layout_mode = 2
+focus_neighbor_top = NodePath("../Settings")
+focus_neighbor_bottom = NodePath("../NewGame")
+focus_next = NodePath("../NewGame")
+focus_previous = NodePath("../Settings")
+text = "Quit"
+alignment = 0

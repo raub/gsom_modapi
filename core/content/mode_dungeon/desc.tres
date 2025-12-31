@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="GsomModContentGamemode" load_steps=4 format=3 uid="uid://dgx8bkcfeh2ux"]
+
+[ext_resource type="PackedScene" uid="uid://c7xp1q4xwat72" path="res://core/content/mode_dungeon/mode_dungeon.tscn" id="1_m2io4"]
+[ext_resource type="Script" uid="uid://vjock0j2fh55" path="res://addons/gsom_modapi/content/mod_content_gamemode.gd" id="1_ygmxq"]
+[ext_resource type="Texture2D" uid="uid://bon5vachjigba" path="res://core/content/mode_dungeon/dungeon.png" id="2_i6t1r"]
+
+[resource]
+script = ExtResource("1_ygmxq")
+tags = Array[StringName]([&"gamemode"])
+attrs = Dictionary[StringName, Variant]({
+&"has_coop": true,
+&"max_players": 4
+})
+caps = Array[StringName]([&"gamemode"])
+ui_title = "Escape"
+ui_tooltip = "Play corridor-shooter mode in research labs."
+ui_summary = "Clear rooms and corridors to escape the lab complex."
+ui_thumbnail = ExtResource("2_i6t1r")
+scene = ExtResource("1_m2io4")
+metadata/_custom_type_script = "uid://vjock0j2fh55"

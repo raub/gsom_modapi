@@ -1,0 +1,64 @@
+[gd_scene load_steps=9 format=3 uid="uid://jfg1qxpsy7gs"]
+
+[ext_resource type="Script" uid="uid://dlyw4dphbthae" path="res://mods/example/content/room_caverns/room_caverns.gd" id="1_sqm2h"]
+
+[sub_resource type="Environment" id="Environment_sqm2h"]
+background_mode = 1
+background_color = Color(0.054568507, 0.056530558, 0.005270958, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.13467008, 0.19460773, 0.075052224, 1)
+fog_enabled = true
+fog_light_color = Color(0, 0, 0, 1)
+fog_light_energy = 3.82
+fog_sky_affect = 0.603
+fog_depth_curve = 0.4061262
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_7kvaw"]
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_yirhf"]
+noise = SubResource("FastNoiseLite_7kvaw")
+seamless = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_114qw"]
+albedo_color = Color(0.6340097, 0.6388163, 0.5464256, 1)
+albedo_texture = SubResource("NoiseTexture2D_yirhf")
+uv1_scale = Vector3(0.295, 0.295, 0.295)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_xppmv"]
+material = SubResource("StandardMaterial3D_114qw")
+size = Vector2(100, 100)
+orientation = 1
+
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_3r40b"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_0ga8w"]
+material = SubResource("StandardMaterial3D_114qw")
+size = Vector2(100, 100)
+orientation = 1
+
+[node name="RoomCaverns" type="Node3D"]
+script = ExtResource("1_sqm2h")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_sqm2h")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.19327, 0, 0)
+mesh = SubResource("QuadMesh_xppmv")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D"]
+shape = SubResource("WorldBoundaryShape3D_3r40b")
+
+[node name="CSGBox3D" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6655884, 0)
+size = Vector3(1, 4.3311768, 1)
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 26.45988, 0)
+mesh = SubResource("QuadMesh_0ga8w")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]

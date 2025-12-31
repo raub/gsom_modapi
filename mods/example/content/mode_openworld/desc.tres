@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="GsomModContentGamemode" load_steps=4 format=3 uid="uid://dcbaalmn5xhk8"]
+
+[ext_resource type="PackedScene" uid="uid://dfb3gvfi5a7ag" path="res://mods/example/content/mode_openworld/mode_openworld.tscn" id="1_7tk6n"]
+[ext_resource type="Script" uid="uid://vjock0j2fh55" path="res://addons/gsom_modapi/content/mod_content_gamemode.gd" id="1_lksec"]
+[ext_resource type="Texture2D" uid="uid://baqddvmnic00j" path="res://mods/example/content/mode_openworld/openworld.png" id="2_b866d"]
+
+[resource]
+script = ExtResource("1_lksec")
+tags = Array[StringName]([&"gamemode"])
+attrs = Dictionary[StringName, Variant]({
+&"has_coop": true,
+&"max_players": 4
+})
+caps = Array[StringName]([&"gamemode"])
+ui_title = "Extraction"
+ui_tooltip = "Play extraction mode in an open-world setting."
+ui_summary = "Survive and reach the extraction point."
+ui_thumbnail = ExtResource("2_b866d")
+scene = ExtResource("1_7tk6n")
+metadata/_custom_type_script = "uid://vjock0j2fh55"

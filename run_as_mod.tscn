@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cir741cj5pqww"]
+
+[ext_resource type="Script" uid="uid://erbayq35ai7d" path="res://run_as_mod.gd" id="1_7w4j7"]
+
+[node name="RunAsMod" type="Node"]
+script = ExtResource("1_7w4j7")

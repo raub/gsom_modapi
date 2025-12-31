@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dfb3gvfi5a7ag"]
+
+[ext_resource type="Script" uid="uid://cbfdw7pc0mchn" path="res://mods/example/content/mode_openworld/mode_openworld.gd" id="1_ujqyt"]
+
+[node name="ModeOpenworld" type="Node"]
+script = ExtResource("1_ujqyt")
