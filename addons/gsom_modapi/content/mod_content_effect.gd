@@ -8,7 +8,7 @@ func _get_kind() -> StringName:
 func _get_default_tags() -> Array[StringName]:
 	return [&"effect"]
 
-func _get_default_attrs() -> Dictionary:
+func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	return {
 		&"duration": 0.0, # 0 = instantaneous
 	}

@@ -7,7 +7,7 @@ func _get_default_tags() -> Array[StringName]:
 	base.append_array([&"consumable"])
 	return base
 
-func _get_default_attrs() -> Dictionary:
+func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	var base := super._get_default_attrs()
 	base[&"uses"] = base.get(&"uses", 1)
 	return base

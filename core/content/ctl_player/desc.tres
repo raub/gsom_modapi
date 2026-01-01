@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="GsomModContentController" load_steps=2 format=3 uid="uid://dqk3jsfjuvguv"]
+
+[ext_resource type="Script" uid="uid://ck42atr1qs0oh" path="res://addons/gsom_modapi/content/mod_content_controller.gd" id="1_fi3dw"]
+
+[resource]
+script = ExtResource("1_fi3dw")
+tags = Array[StringName]([&"controller"])
+caps = Array[StringName]([&"controller"])
+metadata/_custom_type_script = "uid://ck42atr1qs0oh"

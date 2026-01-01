@@ -1,21 +1,21 @@
 @tool
 extends GsomModContent
-class_name GsomModContentStatus
+class_name GsomModContentController
+
+## Base for player and AI behavior
 
 func _get_kind() -> StringName:
-	return &"status"
+	return &"controller"
 
 func _get_default_tags() -> Array[StringName]:
-	return [&"status"]
+	return [&"controller"]
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	return {
-		&"duration": 0.0, # 0 = instant, >0 = timed
-		&"is_buff": false,
-		&"max_stacks": 1,
+		&"view": "fps",
 	}
 
 func _get_default_caps() -> Array[StringName]:
 	return [
-		&"status_effect",
+		&"controller",
 	]

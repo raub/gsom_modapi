@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c3lpruty527d6"]
+
+[ext_resource type="Script" uid="uid://dqud43u2is63u" path="res://core/content/ctl_player/ctl_player.gd" id="1_vo1gl"]
+
+[node name="CtlPlayer" type="Node3D"]
+script = ExtResource("1_vo1gl")

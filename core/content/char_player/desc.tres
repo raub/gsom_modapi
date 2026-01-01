@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="GsomModContentCharacter" load_steps=2 format=3 uid="uid://ftaaprmhuvdu"]
+
+[ext_resource type="Script" uid="uid://bwtbereb80pwj" path="res://addons/gsom_modapi/content/mod_content_character.gd" id="1_ggnhe"]
+
+[resource]
+script = ExtResource("1_ggnhe")
+tags = Array[StringName]([&"actor", &"character", &"player"])
+caps = Array[StringName]([&"health", &"transform", &"velocity", &"actor", &"controllable", &"player_character", &"has_inventory"])
+metadata/_custom_type_script = "uid://bwtbereb80pwj"

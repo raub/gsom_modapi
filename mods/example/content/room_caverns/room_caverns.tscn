@@ -31,12 +31,12 @@ material = SubResource("StandardMaterial3D_114qw")
 size = Vector2(100, 100)
 orientation = 1
 
-[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_3r40b"]
-
 [sub_resource type="QuadMesh" id="QuadMesh_0ga8w"]
 material = SubResource("StandardMaterial3D_114qw")
 size = Vector2(100, 100)
 orientation = 1
+
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_3r40b"]
 
 [node name="RoomCaverns" type="Node3D"]
 script = ExtResource("1_sqm2h")
@@ -48,11 +48,6 @@ environment = SubResource("Environment_sqm2h")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.19327, 0, 0)
 mesh = SubResource("QuadMesh_xppmv")
 
-[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D"]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D"]
-shape = SubResource("WorldBoundaryShape3D_3r40b")
-
 [node name="CSGBox3D" type="CSGBox3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6655884, 0)
 size = Vector3(1, 4.3311768, 1)
@@ -62,3 +57,9 @@ transform = Transform3D(1, 0, 0, 0, -1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 2
 mesh = SubResource("QuadMesh_0ga8w")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="."]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.19327, 0, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+shape = SubResource("WorldBoundaryShape3D_3r40b")

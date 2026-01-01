@@ -8,7 +8,7 @@ func _get_kind() -> StringName:
 func _get_default_tags() -> Array[StringName]:
 	return [&"item"]
 
-func _get_default_attrs() -> Dictionary:
+func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	return {
 		&"rarity": &"common",
 		&"value": 0,

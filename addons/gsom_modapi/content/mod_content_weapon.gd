@@ -7,7 +7,7 @@ func _get_default_tags() -> Array[StringName]:
 	base.append_array([&"weapon"])
 	return base
 
-func _get_default_attrs() -> Dictionary:
+func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	var base := super._get_default_attrs()
 	base[&"damage"] = base.get(&"damage", 10.0)
 	base[&"fire_rate"] = base.get(&"fire_rate", 1.0)

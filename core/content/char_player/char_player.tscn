@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c3ocbfebadioe"]
+
+[ext_resource type="Script" uid="uid://dsh156twfn5y1" path="res://core/content/char_player/char_player.gd" id="1_jafnb"]
+
+[node name="CharPlayer" type="Node3D"]
+script = ExtResource("1_jafnb")

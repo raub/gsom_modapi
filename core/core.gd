@@ -13,6 +13,8 @@ func _get_version() -> StringName:
 
 func _mod_init() -> void:
 	GsomModapi.register(preload("./content/mode_dungeon/desc.tres"))
+	GsomModapi.register(preload("./content/char_player/desc.tres"))
+	GsomModapi.register(preload("./content/ctl_player/desc.tres"))
 
 func _core_main() -> void:
 	__svc_network = __SvcNetwork.instantiate()

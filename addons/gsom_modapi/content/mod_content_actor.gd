@@ -10,7 +10,7 @@ func _get_kind() -> StringName:
 func _get_default_tags() -> Array[StringName]:
 	return [&"actor"]
 
-func _get_default_attrs() -> Dictionary:
+func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	return {
 		&"base_hp": 100.0,
 		&"base_speed": 10.0,
