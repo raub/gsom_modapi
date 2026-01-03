@@ -2,5 +2,14 @@
 
 [ext_resource type="Script" uid="uid://dqud43u2is63u" path="res://core/content/ctl_player/ctl_player.gd" id="1_vo1gl"]
 
-[node name="CtlPlayer" type="Node3D"]
+[node name="CtlPlayer" type="Node"]
 script = ExtResource("1_vo1gl")
+
+[node name="Body" type="Node3D" parent="."]
+
+[node name="Head" type="Node3D" parent="Body"]
+
+[node name="Camera3D" type="Camera3D" parent="Body/Head"]
+current = true
+fov = 95.0
+far = 1000.0

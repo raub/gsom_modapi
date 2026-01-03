@@ -34,6 +34,16 @@ func _get_kind() -> StringName:
 
 @export_category("Discoverability")
 
+## Unique name of the content.
+##
+## Mods can directly override this name to deprecate and replace the old content.
+@export var key: StringName
+
+## Content sorting factor - i.e. "version".
+##
+## The content with identical key and more weight - wins.
+@export var key_weight: float
+
 ## Classify by topic, tone, or function to make content easily searchable.
 ##
 ## A list generalized names and references - what is it like, what is it for?

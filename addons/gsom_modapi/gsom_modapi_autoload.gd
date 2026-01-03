@@ -37,14 +37,20 @@ func launch(core_pck: String, core_script: String, core_main: String) -> void:
 	__core._core_main.call_deferred()
 
 
-func register(desc: GsomModContent) -> void:
-	__registry.register(desc)
+func register(desc: GsomModContent) -> GsomModContent:
+	return __registry.register(desc)
 
 func content_by_id(id: StringName) -> GsomModContent:
 	return __registry.get_by_id(id)
 
 func content_by_kind(kind: StringName) -> Array[GsomModContent]:
 	return __registry.get_by_kind(kind)
+
+func content_by_key(key: StringName) -> GsomModContent:
+	return __registry.get_by_key(key)
+
+func content_by_key_all(key: StringName) -> Array[GsomModContent]:
+	return __registry.get_by_key_all(key)
 
 func content_by_query(query: GsomModQuery) -> Array[GsomModContent]:
 	return __registry.get_by_query(query)

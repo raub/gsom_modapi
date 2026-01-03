@@ -1,18 +1,19 @@
 extends Node
 class_name IReplicated
 
-## This is the base interface that all game-modes will implement.
+## Base for any network-visible object.
 ##
 ## This class is opensourced for modders to share common ground in codebase.
 
 var entity: SvcSpawn.Entity = null
-var is_dirty: bool = false
 
-func _assign_data(_data: Variant) -> void:
+## Accept extra data duting spawn
+func _cl_init(_data: Variant) -> void:
 	pass
 
-func _assign_payload(_payload: Variant) -> void:
+## Accept an update payload
+func _cl_unpack(_payload: Variant) -> void:
 	pass
 
-func _create_payload() -> Variant:
+func _sv_pack() -> Variant:
 	return null

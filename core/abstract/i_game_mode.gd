@@ -1,4 +1,4 @@
-extends IReplicated
+extends IController
 class_name IGameMode
 
 ## This is the base interface that all game-modes will implement.
@@ -53,13 +53,13 @@ class MenuItem:
 class Payload:
 	var state: State = State.NONE
 
-func _assign_data(_data: Variant) -> void:
+func _cl_init(_data: Variant) -> void:
 	pass
 
-func _assign_payload(_payload: Variant) -> void:
+func _cl_unpack(_payload: Variant) -> void:
 	pass
 
-func _create_payload() -> Variant:
+func _sv_pack() -> Variant:
 	return null
 
 func _show_setup_screen() -> void:
@@ -97,7 +97,6 @@ func _change_state(new_state: State) -> void:
 		push_warning("State transition failed: %s to %s" % [__state, new_state])
 		return
 	
-	is_dirty = true
 	__state = new_state
 	
 	if new_state == State.SETUP:
@@ -118,9 +117,6 @@ func _sv_tick(dt: float) -> void:
 		__dont_use_ticks += dt
 		if __dont_use_ticks > 5:
 			_change_state(State.END)
-
-func _cl_tick(_dt: float) -> void:
-	pass
 
 func _show_final_screen() -> void:
 	final_closed.emit()

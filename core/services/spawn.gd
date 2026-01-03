@@ -14,7 +14,7 @@ class Scenes:
 
 class Entity:
 	var content_id: StringName
-	var id: int
+	var net_id: int
 	var data: Variant
 	var node: IReplicated
 	var layer: StringName
@@ -70,48 +70,49 @@ func __create_scenes() -> void:
 	GsomModapi.scene.add_child(scenes.menu)
 	scenesDict["menu"] = scenes.menu
 
-func spawn(id: int, content_id: StringName, layer: StringName, data: Variant, payload: Variant) -> Entity:
+func spawn(net_id: int, content_id: StringName, layer: StringName, data: Variant) -> Entity:
 	var content: GsomModContent = GsomModapi.content_by_id(content_id)
 	if !content:
-		push_error("Content not found by ID '%s'." % id)
+		push_error("Content not found by ID '%s'." % content_id)
 		return null
 	if !content.scene:
-		push_error("Content ID '%s' has no scene." % id)
+		push_error("Content ID '%s' has no scene." % content_id)
 		return null
 	
 	var instance: IReplicated = content.scene.instantiate() as IReplicated
 	if !instance:
-		push_error("Content ID '%s' can't spawn IReplicated." % id)
+		push_error("Content ID '%s' can't spawn IReplicated." % content_id)
 		return null
 	
 	var ent: Entity = Entity.new()
 	ent.content_id = content_id
-	ent.id = id
+	ent.net_id = net_id
 	ent.data = data
 	ent.node = instance
 	ent.layer = layer
 	
-	ent.node._assign_data(data)
-	ent.node._assign_payload(payload)
+	ent.node._cl_init(data)
 	
 	if scenesDict.has(layer):
 		scenesDict[layer].add_child(ent.node)
 	else:
 		scenesDict["world"].add_child(ent.node)
-	spawned[id] = ent
+	spawned[net_id] = ent
 	
 	return ent
 
-func despawn(id: int) -> void:
-	if !spawned.has(id):
+func despawn(net_id: int) -> void:
+	if !spawned.has(net_id):
 		return
-	var ent: Entity = spawned[id]
+	var ent: Entity = spawned[net_id]
 	ent.node.get_parent().remove_child(ent.node)
 	ent.node.queue_free.call_deferred()
+	ent.node = null
 	
-	spawned.erase(id)
+	spawned.erase(net_id)
 
 func clear() -> void:
-	for ent: Entity in spawned.values():
-		ent.node.queue_free()
-	spawned.clear()
+	for net_id: int in spawned:
+		despawn(net_id)
+	__detach_scenes()
+	__create_scenes()
