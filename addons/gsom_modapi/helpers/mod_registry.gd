@@ -46,6 +46,7 @@ func __filter_keyed_content(list: Array[GsomModContent]) -> Array[GsomModContent
 	for item: GsomModContent in list:
 		if !item.key:
 			result.append(item)
+			continue
 		var keyed = get_by_key(item.key)
 		if keyed == item:
 			result.append(item)
@@ -62,7 +63,7 @@ func get_by_kind(kind: StringName) -> Array[GsomModContent]:
 
 func get_by_key(key: StringName) -> GsomModContent:
 	var items: Array[GsomModContent] = __by_key.get(key, [] as Array[GsomModContent])
-	return items[0]
+	return items[0] if items.size() else null
 
 func get_by_key_all(key: StringName) -> Array[GsomModContent]:
 	return __by_key.get(key, [] as Array[GsomModContent])

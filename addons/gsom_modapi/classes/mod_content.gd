@@ -16,6 +16,10 @@ func _property_get_revert(property: StringName) -> Variant:
 		return _get_default_caps()
 	if property in ["ui_title", "ui_tooltip", "ui_summary", "ui_description"]:
 		return ""
+	if property == "key":
+		return &""
+	if property == "key_weight":
+		return 1.0
 	return null
 
 ## Assigned by Modapi during registration
@@ -37,12 +41,12 @@ func _get_kind() -> StringName:
 ## Unique name of the content.
 ##
 ## Mods can directly override this name to deprecate and replace the old content.
-@export var key: StringName
+@export var key: StringName = &""
 
 ## Content sorting factor - i.e. "version".
 ##
 ## The content with identical key and more weight - wins.
-@export var key_weight: float
+@export var key_weight: float = 1.0
 
 ## Classify by topic, tone, or function to make content easily searchable.
 ##
@@ -93,6 +97,11 @@ func _get_kind() -> StringName:
 
 ## This is the default representation of this content
 @export var scene: PackedScene = null
+
+## Content sorting factor - i.e. "version".
+##
+## The content with identical key and more weight - wins.
+@export var replicator: GDScript = null
 
 const __empty_array: Array[StringName] = []
 const __empty_dict: Dictionary[StringName, Variant] = {}

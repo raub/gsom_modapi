@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://bx1uoded1flta"]
-
-[ext_resource type="Script" uid="uid://bhhtgqjhm0il1" path="res://core/services/spawn.gd" id="1_1vbal"]
-
-[node name="Spawn" type="Node"]
-script = ExtResource("1_1vbal")

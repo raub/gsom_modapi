@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://x3dgao1rbjj0"]
-
-[ext_resource type="Script" uid="uid://c0hroif08jntu" path="res://core/services/network.gd" id="1_ldm3v"]
-
-[node name="NetService" type="Node"]
-script = ExtResource("1_ldm3v")

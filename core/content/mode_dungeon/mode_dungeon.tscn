@@ -2,5 +2,5 @@
 
 [ext_resource type="Script" uid="uid://dia0y6lbk5gty" path="res://core/content/mode_dungeon/mode_dungeon.gd" id="1_j2dh8"]
 
-[node name="ModeOpenworld" type="Node"]
+[node name="ModeDungeon" type="Node"]
 script = ExtResource("1_j2dh8")
