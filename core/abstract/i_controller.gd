@@ -13,11 +13,3 @@ func _sv_tick(_dt: float) -> void:
 ## Update client-side representation
 func _cl_tick(_dt: float) -> void:
 	pass
-
-## On server, read a reliable event from a client
-func _sv_read_event(_peer_id: int, _e: Variant) -> void:
-	pass
-
-## On client, read a reliable event from the server
-func _cl_read_event(_e: Variant) -> void:
-	pass

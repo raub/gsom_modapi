@@ -9,7 +9,6 @@ var __sv_play: bool = true
 func _sv_tick(dt: float) -> void:
 	if !__sv_play:
 		return
-	
 	__ticks += dt
 	if __ticks > 5:
 		__sv_play = false

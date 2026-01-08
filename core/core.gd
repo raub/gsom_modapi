@@ -3,7 +3,6 @@ extends GsomModCore
 const __Environment: PackedScene = preload("./vfx/environment.tscn")
 const __Splash: PackedScene = preload("./ui/splash/splash.tscn")
 const __Menu: PackedScene = preload("./ui/menu/menu.tscn")
-const __SvcNetwork := preload("./services/network.gd")
 
 var __menu: UiMenu = null
 var __svc_network: SvcNetwork = null
@@ -17,7 +16,7 @@ func _mod_init() -> void:
 	GsomModapi.register(preload("./content/ctl_player/desc.tres"))
 
 func _core_main() -> void:
-	__svc_network = __SvcNetwork.new()
+	__svc_network = SvcNetwork.new()
 	__svc_network.gamemode_started.connect(__hide_menu)
 	__svc_network.gamemode_ended.connect(__show_menu)
 	GsomModapi.scene.add_child(__svc_network)
@@ -59,4 +58,4 @@ func __hide_menu() -> void:
 	__menu = null
 
 func __launch_new_game(content_id: StringName) -> void:
-	__svc_network._spawn(content_id, &"controller")
+	__svc_network.gamemode_start(content_id)

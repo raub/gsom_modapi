@@ -2,6 +2,7 @@ extends Control
 class_name UiMenuNewGame
 
 signal selected_mode(id: StringName)
+signal pressed_back()
 
 const __GameMode: PackedScene = preload("./game_mode/game_mode.tscn")
 
@@ -9,7 +10,7 @@ const __GameMode: PackedScene = preload("./game_mode/game_mode.tscn")
 @onready var __back: Button = $VBoxContainer/HBoxContainer/Back
 
 func _ready() -> void:
-	__back.pressed.connect(hide)
+	__back.pressed.connect(pressed_back.emit)
 	
 	var game_modes: Array[GsomModContent] = GsomModapi.content_by_kind(&"gamemode")
 	if game_modes.is_empty():

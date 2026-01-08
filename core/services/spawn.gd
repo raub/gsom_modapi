@@ -1,7 +1,6 @@
 extends Node
 class_name SvcSpawn
 
-#var scenes: Scenes = Scenes.new()
 var scenesDict: Dictionary[INetwork.SpawnLayer, Node] = {}
 
 ## Currently existing entities: `{ [net_id]: IReplicator }`
@@ -11,17 +10,24 @@ func _ready() -> void:
 	__create_scenes()
 
 func __detach_scenes() -> void:
-	for layer: INetwork.SpawnLayer in scenesDict.keys():
+	for layer: INetwork.SpawnLayer in INetwork.SpawnLayer.values():
 		GsomModapi.scene.remove_child(scenesDict[layer])
 		scenesDict.erase(layer)
 
 func __create_scenes() -> void:
-	for layer: INetwork.SpawnLayer in scenesDict.keys():
+	for layer: INetwork.SpawnLayer in INetwork.SpawnLayer.values():
 		var scene: Node = Node.new()
 		GsomModapi.scene.add_child(scene)
 		scenesDict[layer] = scene
 
-func spawn(net_id: int, content_id: StringName, layer: INetwork.SpawnLayer, data: Variant) -> IReplicator:
+func spawn(
+	net_id: int,
+	content_id: StringName,
+	layer: INetwork.SpawnLayer,
+	data: Variant,
+	net: INetwork,
+	instigator_key: StringName,
+) -> IReplicator:
 	var content: GsomModContent = GsomModapi.content_by_id(content_id)
 	if !content:
 		push_error("Content not found by ID '%s'." % content_id)
@@ -45,6 +51,8 @@ func spawn(net_id: int, content_id: StringName, layer: INetwork.SpawnLayer, data
 	ent.net_id = net_id
 	ent.layer = layer
 	ent.init_data = data
+	ent.net = net
+	ent.instigator_key = instigator_key
 	instance.add_child(ent)
 	
 	spawned[net_id] = ent

@@ -8,7 +8,7 @@ signal started_new_game(id: StringName)
 
 func _ready() -> void:
 	__main_menu.pressed.connect(__handle_main_menu)
-	__new_game.hidden.connect(__restore_main_menu)
+	__new_game.pressed_back.connect(__restore_main_menu)
 	__new_game.selected_mode.connect(__handle_new_game)
 	
 	__restore_main_menu()
@@ -28,7 +28,7 @@ func __handle_main_menu(what: String) -> void:
 		get_tree().quit()
 
 func __handle_new_game(id: StringName) -> void:
-	__restore_main_menu()
+	__new_game.hide()
 	started_new_game.emit(id)
 
 func __show_new_game() -> void:

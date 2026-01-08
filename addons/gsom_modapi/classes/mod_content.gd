@@ -98,9 +98,9 @@ func _get_kind() -> StringName:
 ## This is the default representation of this content
 @export var scene: PackedScene = null
 
-## Content sorting factor - i.e. "version".
+## For network replication, include the replicator script reference.
 ##
-## The content with identical key and more weight - wins.
+## This is separated from scene because it may have its own class-specific script.
 @export var replicator: GDScript = null
 
 const __empty_array: Array[StringName] = []
