@@ -1,4 +1,4 @@
-extends IGameMode
+extends IGsomGameMode
 
 # This example implementation simply ends the game in 5 seconds
 var __ticks: float = 0
@@ -13,4 +13,4 @@ func _sv_tick(dt: float) -> void:
 	__ticks += dt
 	if __ticks > 5:
 		__sv_play = false
-		net._despawn(net_id) # self-destruct
+		net._sv_despawn(net_id) # self-destruct

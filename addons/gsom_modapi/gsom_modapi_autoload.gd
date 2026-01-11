@@ -14,9 +14,9 @@ func _ready() -> void:
 	scene = Node.new()
 	add_child(scene)
 
-func launch(core_pck: String, core_script: String, core_main: String) -> void:
+func launch(core_pck: String, core_script: String) -> void:
 	if core_pck:
-		var result = ProjectSettings.load_resource_pack(core_pck, false)
+		var result: bool = ProjectSettings.load_resource_pack(core_pck, false)
 		if !result:
 			push_error("Error loading PCK '%s'." % core_pck)
 			return
@@ -52,7 +52,7 @@ func content_by_key(key: StringName) -> GsomModContent:
 func content_by_key_all(key: StringName) -> Array[GsomModContent]:
 	return __registry.get_by_key_all(key)
 
-func content_by_query(query: GsomModQuery) -> Array[GsomModContent]:
+func content_by_query(query: GsomModQueryFilter) -> Array[GsomModContent]:
 	return __registry.get_by_query(query)
 
 func content_by_mod(mod: StringName) -> Array[GsomModContent]:

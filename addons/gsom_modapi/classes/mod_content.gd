@@ -2,11 +2,31 @@
 extends Resource
 class_name GsomModContent
 
+## Base class for mod content.
+##
+##
+## Note, guideline keywords:
+## - [readonly] - if you mutate it, you will face a terrible fate.
+## - [core] - it is safe to assume the Core has implemented it.
+## - [required] - there is no "default" implementation.
+## - [optional] - it's ok to omit implementation.
+
 const ModUtils = preload("../helpers/mod_utils.gd")
 
+# Fix editor revert buttons
 func _property_can_revert(_property: StringName) -> bool:
 	return true
 
+var __str_props: Array[StringName] = [
+	"ui_title", "ui_tooltip", "ui_summary", "ui_description",
+]
+var __strn_props: Array[StringName] = [
+	"key",
+	"path_icon", "path_thumbnail", "path_preview",
+	"path_scene", "path_replicator",
+]
+
+# Fix revert behavior for arrays
 func _property_get_revert(property: StringName) -> Variant:
 	if property == "tags":
 		return _get_default_tags()
@@ -14,33 +34,35 @@ func _property_get_revert(property: StringName) -> Variant:
 		return _get_default_attrs()
 	if property == "caps":
 		return _get_default_caps()
-	if property in ["ui_title", "ui_tooltip", "ui_summary", "ui_description"]:
+	if property in __str_props:
 		return ""
-	if property == "key":
+	if property in __strn_props:
 		return &""
 	if property == "key_weight":
 		return 1.0
+	if property == "deps":
+		return __empty_array_query
 	return null
 
-## Assigned by Modapi during registration
+## [readonly core] Assigned by Modapi during registration
 var id: StringName
 
-## Assigned by Modapi during registration
+## [readonly core] Assigned by Modapi during registration
 var mod: StringName
 
-## Readonly content kind, based on `_get_kind()`
+## [readonly] Readonly content kind, based on `_get_kind()`
 var kind: StringName:
 	get: return _get_kind()
 
-## Redefine this in subclasses
+## [required] Redefine this in subclasses
 func _get_kind() -> StringName:
 	return &"unknown"
 
-@export_category("Discoverability")
+@export_category("Search")
 
 ## Unique name of the content.
 ##
-## Mods can directly override this name to deprecate and replace the old content.
+## Mods can directly override this name to deprecate and replace content.
 @export var key: StringName = &""
 
 ## Content sorting factor - i.e. "version".
@@ -50,7 +72,7 @@ func _get_kind() -> StringName:
 
 ## Classify by topic, tone, or function to make content easily searchable.
 ##
-## A list generalized names and references - what is it like, what is it for?
+## A list of generalized names and references - what is it like, what is it for?
 @export var tags: Array[StringName]:
 	get: return __get_tags()
 	set(v): __set_tags(v)
@@ -70,123 +92,128 @@ func _get_kind() -> StringName:
 	get: return __get_caps()
 	set(v): __set_caps(v)
 
-@export_category("UI Display")
+@export_category("Preview")
 
-## Displayable content name
+## Displayable content name.
 @export var ui_title: String = ""
 
-## Short tooltip, shown on hover
+## Short tooltip, shown on hover.
 @export_multiline var ui_tooltip: String = ""
 
-## Short description, 1–2 lines
+## Short description, 1–2 lines.
 @export_multiline var ui_summary: String = ""
 
-## Detailed description
+## Detailed description.
 @export_multiline var ui_description: String = ""
 
-## Icon for lists/slots/buttons
-@export var ui_icon: Texture2D = null
+## Path to a Texture2D - an icon for lists/slots/buttons.
+##
+## This is a path, not the resource itself.
+## Storing a resource would load actual assets before it is necessary.
+##
+## Note: don't use UID paths - these won't survive mod PCK.
+@export var path_icon: StringName = &""
 
-## A preview thumbnail image
-@export var ui_thumbnail: Texture2D = null
+## Path to a Texture2D - a preview thumbnail image.
+##
+## This is a path, not the resource itself.
+## Storing a resource would load actual assets before it is necessary.
+##
+## Note: don't use UID paths - these won't survive mod PCK.
+@export var path_thumbnail: StringName = &""
 
-## Any preview scene for UI purposes
-@export var ui_preview: PackedScene = null
+## Path to a PackedScene - a preview scene for UI purposes.
+##
+## This is a path, not the resource itself.
+## Storing a resource would load actual assets before it is necessary.
+##
+## Note: don't use UID paths - these won't survive mod PCK.
+@export var path_preview: StringName = &""
 
-@export_category("Instantiation")
+## Queries to pre-cache other resources together with this one.
+##
+## This is how game "loading" knows what to load.
+## Traverse all needed resources and their subdependencies.
+@export var deps: Array[GsomModQueryBase] = __empty_array_query
 
-## This is the default representation of this content
-@export var scene: PackedScene = null
+@export_category("Spawn")
 
-## For network replication, include the replicator script reference.
+## Path to a PackedScene - the default representation of this content.
+##
+## This is a path, not the resource itself.
+## Storing a resource would load actual assets before it is necessary.
+##
+## Note: don't use UID paths - these won't survive mod PCK.
+@export var path_scene: StringName = &""
+
+## Path to a GDScript - an optional separate script for network replication.
 ##
 ## This is separated from scene because it may have its own class-specific script.
-@export var replicator: GDScript = null
+## This is a path, not the resource itself.
+##
+## Note: don't use UID paths - these won't survive mod PCK.
+@export var path_replicator: StringName = &""
 
-const __empty_array: Array[StringName] = []
-const __empty_dict: Dictionary[StringName, Variant] = {}
+var __empty_array_query: Array[GsomModQueryBase] = []
+var __empty_array_stringname: Array[StringName] = []
+var __empty_dict: Dictionary[StringName, Variant] = {}
 
 # Cached value that prevents creating new arrays on every get
-var __tags_cache: Array[StringName] = __empty_array
+var __tags_cache: Array[StringName] = __empty_array_stringname
+var __has_tags_cache: bool = false
 
-# Combines defaults with custom ones
 func __get_tags() -> Array[StringName]:
-	if __tags_cache.size():
-		return __tags_cache
-	return _get_default_tags()
+	if !__has_tags_cache:
+		__tags_cache = _get_default_tags()
+		__has_tags_cache = true
+	return __tags_cache
 
-# Cache modified tags. Or revert to default after deletions
+# Stores into cache
 func __set_tags(v: Array[StringName]) -> void:
-	var default_tags: Array[StringName] = _get_default_tags()
-	
-	var uniq_tags: Array[StringName] = default_tags.duplicate()
-	uniq_tags.append_array(v)
-	uniq_tags = ModUtils.array_uniq_string_name(uniq_tags)
-	
-	if uniq_tags.size() > default_tags.size():
-		__tags_cache = uniq_tags
-	else:
-		__tags_cache = __empty_array
+	__tags_cache = ModUtils.array_uniq_string_name(v)
+	__has_tags_cache = true
 
-## Redefine this in subclasses
+## [optional] Redefine this in subclasses
 func _get_default_tags() -> Array[StringName]:
-	return __empty_array
+	return __empty_array_stringname
 
 # Cached value that prevents creating new objects on every get
 var __attrs_cache: Dictionary[StringName, Variant] = {}
+var __has_attrs_cache: bool = false
 
-# Combines defaults with custom ones
 func __get_attrs() -> Dictionary[StringName, Variant]:
-	if __attrs_cache.size():
-		return __attrs_cache
-	return _get_default_attrs()
+	if !__has_attrs_cache:
+		__attrs_cache = _get_default_attrs()
+		__has_attrs_cache = true
+	return __attrs_cache
 
-# Stores only the custom values
+# Stores into cache
 func __set_attrs(v: Dictionary[StringName, Variant]) -> void:
-	var default_attrs: Dictionary[StringName, Variant] = _get_default_attrs()
-	
-	var diff: Dictionary[StringName, Variant] = {}
-	for key: StringName in v:
-		if !default_attrs.has(key) or default_attrs[key] != v[key]:
-			diff[key] = v[key]
-	
-	if diff.size():
-		var new_attrs = default_attrs.duplicate()
-		new_attrs.merge(diff, true)
-		__attrs_cache = new_attrs
-	else:
-		__attrs_cache = __empty_dict
+	__attrs_cache = v
+	__has_attrs_cache = true
 
-
-## Redefine this in subclasses
+## [optional] Redefine this in subclasses
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
 	return __empty_dict
 
 # Custom caps stored privately. These are on top of the default ones.
-var __caps_cache: Array[StringName] = __empty_array
+var __caps_cache: Array[StringName] = __empty_array_stringname
+var __has_caps_cache: bool = false
 
-# Combines defaults with custom ones
 func __get_caps() -> Array[StringName]:
-	if __caps_cache.size():
-		return __caps_cache
-	return _get_default_caps()
+	if !__has_caps_cache:
+		__caps_cache = _get_default_caps()
+		__has_caps_cache = true
+	return __caps_cache
 
-# Stores only the custom values
+# Stores into cache
 func __set_caps(v: Array[StringName]) -> void:
-	var default_caps: Array[StringName] = _get_default_caps()
-	
-	var uniq_caps: Array[StringName] = default_caps.duplicate()
-	uniq_caps.append_array(v)
-	uniq_caps = ModUtils.array_uniq_string_name(uniq_caps)
-	
-	if uniq_caps.size() > default_caps.size():
-		__caps_cache = uniq_caps
-	else:
-		__caps_cache = __empty_array
+	__caps_cache = ModUtils.array_uniq_string_name(v)
+	__has_caps_cache = true
 
-## Redefine this in subclasses
+## [optional] Redefine this in subclasses
 func _get_default_caps() -> Array[StringName]:
-	return __empty_array
+	return __empty_array_stringname
 
 # QoL helpers
 
@@ -203,5 +230,5 @@ func has_attr(attr: StringName) -> bool:
 	return __get_attrs().has(attr)
 
 ## Get attribute value or default
-func get_attr(key: StringName, default: Variant = null):
-	return __get_attrs().get(key, default)
+func get_attr(attr_key: StringName, default: Variant = null) -> Variant:
+	return __get_attrs().get(attr_key, default)

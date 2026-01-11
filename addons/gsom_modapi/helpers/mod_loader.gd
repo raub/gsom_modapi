@@ -1,10 +1,9 @@
 extends RefCounted
 
-## This is [b]an autoload singleton[/b], that becomes globally available when you enable the plugin.
-const __mod_settings_default: Dictionary = {
-	"disabled_mods": []
-}
-static var __mod_settings: Dictionary = {}
+class ModSettings:
+	var disabled_mods: Array[StringName] = []
+
+static var __mod_settings: ModSettings = null
 static var __phase: StringName = &""
 static var __id: int = 0
 
@@ -13,27 +12,27 @@ static var loaded_mods: Dictionary[StringName, GsomModMeta] = {}
 static func load_mods() -> void:
 	__read_settings()
 	
-	var user_mod_names = __fetch_user_mod_names()
-	var builtin_mod_names = __fetch_builtin_mod_names()
+	var user_mod_names: PackedStringArray = __fetch_user_mod_names()
+	var builtin_mod_names: PackedStringArray = __fetch_builtin_mod_names()
 	
 	var loaded_mod_names: PackedStringArray = []
-	for name in user_mod_names:
+	for name: String in user_mod_names:
 		if __mod_settings.disabled_mods.has(name):
 			continue
 		if ProjectSettings.load_resource_pack("user://mods/%s.pck", false):
 			loaded_mod_names.append(name)
 	
-	for name in builtin_mod_names:
+	for name: String in builtin_mod_names:
 		if !loaded_mod_names.has(name):
 			loaded_mod_names.append(name)
 	
-	for name in loaded_mod_names:
+	for name: String in loaded_mod_names:
 		var script: GDScript = load("res://mods/%s/mod.gd" % name)
-		var inst = script.new()
+		var inst: Object = script.new()
 		if !(inst is GsomModMeta):
 			push_error("The mod script should extend 'GsomModMeta'.")
 			continue
-		loaded_mods[name] = inst
+		loaded_mods[name] = inst as GsomModMeta
 	
 	for name: StringName in loaded_mods:
 		start_phase(name)
@@ -43,19 +42,19 @@ static func load_mods() -> void:
 # Reads "user://mods/*" for external mods.
 # @returns An array of directory names found under "mods".
 static func __fetch_user_mod_names() -> PackedStringArray:
-	var result := PackedStringArray()
-	var base := "user://mods"
+	var result: PackedStringArray = PackedStringArray()
+	var base: String = "user://mods"
 
 	if not DirAccess.dir_exists_absolute(base):
 		return result
 
-	var dir := DirAccess.open(base)
+	var dir: DirAccess = DirAccess.open(base)
 	if dir == null:
 		return result
 
 	dir.list_dir_begin()
 	while true:
-		var name := dir.get_next()
+		var name: String = dir.get_next()
 		if name == "":
 			break
 
@@ -72,20 +71,20 @@ static func __fetch_user_mod_names() -> PackedStringArray:
 # Reads "res://mods/*" for builtin mods.
 # @returns An array of directory names found under "mods".
 static func __fetch_builtin_mod_names() -> PackedStringArray:
-	var result := PackedStringArray()
-	var base := "res://mods"
+	var result: PackedStringArray = PackedStringArray()
+	var base: String = "res://mods"
 
 	# res:// may not contain a mods folder
 	if not DirAccess.dir_exists_absolute(base):
 		return result
 
-	var dir := DirAccess.open(base)
+	var dir: DirAccess = DirAccess.open(base)
 	if dir == null:
 		return result
 
 	dir.list_dir_begin()
 	while true:
-		var name := dir.get_next()
+		var name: String = dir.get_next()
 		if name == "":
 			break
 
@@ -105,7 +104,7 @@ static func __fetch_builtin_mod_names() -> PackedStringArray:
 #
 # The missing fields are taken from `__mod_settings_default` as is.
 static func __read_settings() -> void:
-	__mod_settings = __mod_settings_default.duplicate()
+	__mod_settings = ModSettings.new()
 
 # Writes "user://mod_settings.json"
 # The `__mod_settings` var contents is dumped into the file

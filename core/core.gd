@@ -5,7 +5,7 @@ const __Splash: PackedScene = preload("./ui/splash/splash.tscn")
 const __Menu: PackedScene = preload("./ui/menu/menu.tscn")
 
 var __menu: UiMenu = null
-var __svc_network: SvcNetwork = null
+var __svc_network: GsomNetworkImpl = null
 
 func _get_version() -> StringName:
 	return &"0.0.1"
@@ -16,7 +16,7 @@ func _mod_init() -> void:
 	GsomModapi.register(preload("./content/ctl_player/desc.tres"))
 
 func _core_main() -> void:
-	__svc_network = SvcNetwork.new()
+	__svc_network = GsomNetworkImpl.new()
 	__svc_network.gamemode_started.connect(__hide_menu)
 	__svc_network.gamemode_ended.connect(__show_menu)
 	GsomModapi.scene.add_child(__svc_network)

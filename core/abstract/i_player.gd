@@ -1,45 +1,67 @@
-extends IController
-class_name IPlayer
+extends IGsomController
+class_name IGsomPlayer
 
 ## This is the base player controller interface.
 ##
-## Note: [readonly] means if you mutate it, you will face a terrible fate.
-## There is no need for over-engineered precautions, you've been warned.
+## Note, guideline keywords:
+## - [readonly] - if you mutate it, you will face a terrible fate.
+## - [required] - there is no "default" implementation.
+## - [optional] - it's ok to omit implementation.
+## - [server] - this will not be called on clients.
+## - [core] - it is safe to assume the Core has implemented it.
 
-## [readonly] Is this the local player.
+## [readonly core] Persistent peer identification - even after reconnect.
 ##
-## Network implementation must inject `peer_identity` before _sv/_cl init.
-## Each peer only has one "local" player controller - the one they are in control of.
-var is_local: bool:
-	get: return peer_identity == net.local_identity
-
-## [readonly] Persistent peer identification - even after reconnect.
-##
-## This is assigned automatically when player spawns (before `_ready`).
+## Injected before `_ready` (before `_sv_ready` and `_cl_ready`).
 var peer_identity: StringName = &""
 
-## Only called on local player (after sv_, before cl_).
+## Is this the local player.
+##
+## Each peer only has one "local" player controller - the one they are in control of.
+## This check is valid on and after `_ready` (on `_sv_ready` and `_cl_ready`).
+func check_is_local() -> bool:
+	return peer_identity == net.get_local_identity()
+
+## Is this the host player.
+##
+## Each server only has one "host" player at most.
+## This check is valid on and after `_ready` (on `_sv_ready` and `_cl_ready`).
+func check_is_host() -> bool:
+	return peer_identity == net.get_host_identity()
+
+## [required] Only called on local player (after `sv_tick`, before `cl_tick`).
 ##
 ## This is where the peer input actions are collected.
-## The format is controller-specific - this is what you get in `_apply_actions`.
+## The format is controller-specific - this is what you will get in `_apply_actions`.
 ##
 ## This is different from "reliable events":
 ## - Unreliable channel is utilized.
 ## - Network actively polls this, instead of waiting for event to happen.
 ## - You can't produce actions for other player controllers (possible with events).
+##
+## IMPORTANT:
+## - Always pair with `_apply_actions` implementation: `actions` are delivered verbatim.
+## - Channel is unreliable. Packets may be lost or ignored due to out-of-order.
+## - Packet ordering is implemented by the Core, no need to encode and check it.
 func _local_tick(_dt: float) -> Variant:
 	assert(false, "Not implemented")
 	return null
 
-## Apply the actions from `_local_tick`.
+## [required] Apply the actions from `_local_tick`.
 ##
-## - Server applies actions from each peer to their respective IPlayer.
+## - Server applies actions from each peer to their respective IGsomPlayer.
 ## - Client self-applies their own actions for smooth prediction.
+##
+## IMPORTANT:
+## - Always pair with `_local_tick` implementation: `actions` are delivered verbatim.
+## - Channel is unreliable. Packets may be lost or ignored due to out-of-order.
+## - Packet ordering is implemented by the Core, no need to encode and check it.
 func _apply_actions(_actions: Variant) -> void:
 	assert(false, "Not implemented")
 
-## Update player based on their peer changes.
+## [optional server] Update the player, based on their peer changes.
 ##
-## When peer disconnects by accident, it counts as "update" to `peer.connected`.
-func _sv_peer_update(_peer: IPeer) -> void:
+## This is called when fields are modified in the player-related peer.
+## When the peer disconnects/reconnects, it counts as an "update" too.
+func _sv_peer_update(_peer: IGsomPeer) -> void:
 	pass

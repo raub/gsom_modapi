@@ -1,16 +1,32 @@
-extends RefCounted
-class_name IPeer
+extends IGsomInstigator
+class_name IGsomPeer
 
 ## Base peer - representation of network/lobby client.
 ##
+## This is what **Core implements**.
+## I.e. opposed to IGsomEntity implementations, shipped by mods.
+##
 ## Peers are generated and managed by the network service.
 ## This class reflects the publicly available part of a network peer.
+## All peers are instigators - no need to register them manually.
 ##
-## Mods edit the peer data content through `_sv_set_attr_*` (server only).
-## And read that data with `_get_attr_*` (on both server and client).
-## These are intentionally limited to few easily-serializable data types.
+## The host may recognize previously connected peers by `_get_identity`.
+## The network implementation can preserve identity past disconnection and crash events.
+##
+## Note, guideline keywords:
+## - [readonly] - if you mutate it, you will face a terrible fate.
+## - [core] - it is safe to assume the Core has implemented it.
+## - [server] - calling it from non-host will have no effect.
 
-## Is this peer online?
+## [core] A volatile internal ID used for network routing.
+##
+## Some UI and debugging may still want the ephemeral numeric ID.
+## This is the proper way to obtain it from the network implementation.
+func _get_id() -> int:
+	assert(false, "Not implemented")
+	return IGsomNetwork.NET_ID_EMPTY
+
+## [core] Is this peer online?
 ##
 ## All peers start as valid and connected - that's how they get here.
 ## But they can become temporarily disconnected, and reconnect.
@@ -18,50 +34,16 @@ func _get_connected() -> bool:
 	assert(false, "Not implemented")
 	return false
 
-## Display name, not stable and not unique, just a label - as provided by system.
+## Is this the local peer?
 ##
-## I.e. it may get here from Steam or whatever.
-## And changing it is beyond what mods can do from this interface.
-func _get_label() -> String:
-	assert(false, "Not implemented")
-	return "Player"
+## Each instance only has one "local" peer.
+## Assume this check is always valid, because all injections are made early.
+func check_is_local() -> bool:
+	return _get_identity() == net.get_local_identity()
 
-## Stable peer identity key, use this to reliably refer to the same peer.
+## Is this the host peer?
 ##
-## The host may recognize previously connected peers by `identity`.
-## The network implementation can preserve identity past disconnection and crash events.
-func _get_identity() -> StringName:
-	assert(false, "Not implemented")
-	return &""
-
-## Set an integer attribute.
-func _sv_set_attr_int(_key: StringName, _value: int) -> void:
-	assert(false, "Not implemented")
-
-## Set a boolean attribute.
-func _sv_set_attr_bool(_key: StringName, _value: bool) -> void:
-	assert(false, "Not implemented")
-
-## Set a string attribute.
-func _sv_set_attr_string(_key: StringName, _value: String) -> void:
-	assert(false, "Not implemented")
-
-## Set a float attribute.
-func _sv_set_attr_float(_key: StringName, _value: float) -> void:
-	assert(false, "Not implemented")
-
-func _get_attr_int(_key: StringName) -> int:
-	assert(false, "Not implemented")
-	return 0
-
-func _get_attr_bool(_key: StringName) -> bool:
-	assert(false, "Not implemented")
-	return false
-
-func _get_attr_string(_key: StringName) -> String:
-	assert(false, "Not implemented")
-	return ""
-
-func _get_attr_float(_key: StringName) -> float:
-	assert(false, "Not implemented")
-	return 0
+## Each server only has one "host" peer at most.
+## Assume this check is always valid, because all injections are made early.
+func check_is_host() -> bool:
+	return _get_identity() == net.get_host_identity()

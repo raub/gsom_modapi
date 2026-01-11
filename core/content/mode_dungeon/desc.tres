@@ -1,9 +1,7 @@
-[gd_resource type="Resource" script_class="GsomModContentGamemode" load_steps=5 format=3 uid="uid://dgx8bkcfeh2ux"]
+[gd_resource type="Resource" script_class="GsomModContentGamemode" load_steps=3 format=3 uid="uid://dgx8bkcfeh2ux"]
 
-[ext_resource type="PackedScene" uid="uid://c7xp1q4xwat72" path="res://core/content/mode_dungeon/mode_dungeon.tscn" id="1_m2io4"]
-[ext_resource type="Script" uid="uid://bk6efr1nfqlpa" path="res://core/content/mode_dungeon/replicator.gd" id="1_r8s3c"]
+[ext_resource type="Script" uid="uid://bbvjbyjpy6ogf" path="res://addons/gsom_modapi/classes/mod_query_base.gd" id="1_i6t1r"]
 [ext_resource type="Script" uid="uid://vjock0j2fh55" path="res://addons/gsom_modapi/content/mod_content_gamemode.gd" id="1_ygmxq"]
-[ext_resource type="Texture2D" uid="uid://bon5vachjigba" path="res://core/content/mode_dungeon/dungeon.png" id="2_i6t1r"]
 
 [resource]
 script = ExtResource("1_ygmxq")
@@ -16,7 +14,8 @@ caps = Array[StringName]([&"gamemode"])
 ui_title = "Escape"
 ui_tooltip = "Play corridor-shooter mode in research labs."
 ui_summary = "Clear rooms and corridors to escape the lab complex."
-ui_thumbnail = ExtResource("2_i6t1r")
-scene = ExtResource("1_m2io4")
-replicator = ExtResource("1_r8s3c")
+path_thumbnail = &"res://core/content/mode_dungeon/dungeon.png"
+deps = Array[ExtResource("1_i6t1r")]([])
+path_scene = &"res://core/content/mode_dungeon/mode_dungeon.tscn"
+path_replicator = &"res://core/content/mode_dungeon/replicator.gd"
 metadata/_custom_type_script = "uid://vjock0j2fh55"

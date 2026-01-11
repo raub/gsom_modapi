@@ -23,6 +23,7 @@ GsomModapi="*res://addons/gsom_modapi/./gsom_modapi_autoload.gd"
 
 [debug]
 
+gdscript/warnings/exclude_addons=false
 gdscript/warnings/untyped_declaration=1
 gdscript/warnings/inferred_declaration=1
 gdscript/warnings/unsafe_property_access=1

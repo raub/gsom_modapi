@@ -5,7 +5,7 @@ static func array_uniq(input: Array) -> Array:
 	var seen: Dictionary = {}
 	var result: Array = []
 	
-	for item in input:
+	for item: Variant in input:
 		if not seen.has(item):
 			seen[item] = true
 			result.append(item)
