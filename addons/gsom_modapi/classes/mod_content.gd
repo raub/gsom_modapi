@@ -4,6 +4,7 @@ class_name GsomModContent
 
 ## Base class for mod content.
 ##
+## All game content can be shipped by mods. This is the 
 ##
 ## Note, guideline keywords:
 ## - [readonly] - if you mutate it, you will face a terrible fate.
@@ -58,7 +59,7 @@ var kind: StringName:
 func _get_kind() -> StringName:
 	return &"unknown"
 
-@export_category("Search")
+@export_category("Query Search")
 
 ## Unique name of the content.
 ##
@@ -92,7 +93,7 @@ func _get_kind() -> StringName:
 	get: return __get_caps()
 	set(v): __set_caps(v)
 
-@export_category("Preview")
+@export_category("UI Text")
 
 ## Displayable content name.
 @export var ui_title: String = ""
@@ -105,6 +106,8 @@ func _get_kind() -> StringName:
 
 ## Detailed description.
 @export_multiline var ui_description: String = ""
+
+@export_category("Res Paths")
 
 ## Path to a Texture2D - an icon for lists/slots/buttons.
 ##
@@ -130,14 +133,6 @@ func _get_kind() -> StringName:
 ## Note: don't use UID paths - these won't survive mod PCK.
 @export var path_preview: StringName = &""
 
-## Queries to pre-cache other resources together with this one.
-##
-## This is how game "loading" knows what to load.
-## Traverse all needed resources and their subdependencies.
-@export var deps: Array[GsomModQueryBase] = __empty_array_query
-
-@export_category("Spawn")
-
 ## Path to a PackedScene - the default representation of this content.
 ##
 ## This is a path, not the resource itself.
@@ -153,6 +148,26 @@ func _get_kind() -> StringName:
 ##
 ## Note: don't use UID paths - these won't survive mod PCK.
 @export var path_replicator: StringName = &""
+
+@export_category("Dependencies")
+
+## Pre-cache another resource by a Queries.
+##
+## This is how game "loading" knows what to load.
+## Traverses all nested content resources and their subdependencies.
+@export var dep_query: GsomModQueryBase = null
+
+## Pre-cache other resources by an array of Queries.
+##
+## This is how game "loading" knows what to load.
+## Traverses all nested content resources and their subdependencies.
+@export var dep_queries: Array[GsomModQueryBase] = __empty_array_query
+
+## Pre-cache other resources by a Selector.
+##
+## This is how game "loading" knows what to load.
+## Traverses all nested content resources and their subdependencies.
+@export var dep_selector: GsomModSelector = null
 
 var __empty_array_query: Array[GsomModQueryBase] = []
 var __empty_array_stringname: Array[StringName] = []

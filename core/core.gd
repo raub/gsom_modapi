@@ -6,6 +6,7 @@ const __Menu: PackedScene = preload("./ui/menu/menu.tscn")
 
 var __menu: UiMenu = null
 var __svc_network: GsomNetworkImpl = null
+var __precached: Array[Resource] = []
 
 func _get_version() -> StringName:
 	return &"0.0.1"
@@ -36,7 +37,17 @@ func _core_main() -> void:
 	
 	tween.tween_callback(func () -> void: splash.queue_free())
 	tween.tween_callback(__show_menu)
+	
+	var sel: GsomModSelector = preload("res://core/content/selectors/initial.tres")
+	var precache_list: Array[StringName] = GsomModapi.traverse_selector(sel)
+	for path: StringName in precache_list:
+		__precache.call_deferred(path)
 
+
+func __precache(path: StringName) -> void:
+	var res: Resource = load(path)
+	__precached.append(res)
+	prints("Precached:", path, Time.get_ticks_usec())
 
 func __show_menu() -> void:
 	__menu = __Menu.instantiate()

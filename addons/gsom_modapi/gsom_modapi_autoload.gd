@@ -2,15 +2,14 @@ extends Node
 
 const ModRegistry = preload("./helpers/mod_registry.gd")
 const ModLoader = preload("./helpers/mod_loader.gd")
+const ModDeps = preload("./helpers/mod_deps.gd")
 
 ## This is [b]an autoload singleton[/b], that becomes globally available when you enable the plugin.
 
 var scene: Node = null
-var __registry: ModRegistry = null
 var __core: GsomModCore = null
 
 func _ready() -> void:
-	__registry = ModRegistry.new()
 	scene = Node.new()
 	add_child(scene)
 
@@ -38,22 +37,31 @@ func launch(core_pck: String, core_script: String) -> void:
 
 
 func register(desc: GsomModContent) -> GsomModContent:
-	return __registry.register(desc)
+	return ModRegistry.register(desc)
 
 func content_by_id(id: StringName) -> GsomModContent:
-	return __registry.get_by_id(id)
+	return ModRegistry.get_by_id(id)
 
 func content_by_kind(kind: StringName) -> Array[GsomModContent]:
-	return __registry.get_by_kind(kind)
+	return ModRegistry.get_by_kind(kind)
 
 func content_by_key(key: StringName) -> GsomModContent:
-	return __registry.get_by_key(key)
+	return ModRegistry.get_by_key(key)
 
 func content_by_key_all(key: StringName) -> Array[GsomModContent]:
-	return __registry.get_by_key_all(key)
+	return ModRegistry.get_by_key_all(key)
 
 func content_by_query(query: GsomModQueryFilter) -> Array[GsomModContent]:
-	return __registry.get_by_query(query)
+	return ModRegistry.get_by_query(query)
 
 func content_by_mod(mod: StringName) -> Array[GsomModContent]:
-	return __registry.get_by_mod(mod)
+	return ModRegistry.get_by_mod(mod)
+
+func traverse_selector(selector: GsomModSelector) -> Array[StringName]:
+	return ModDeps.traverse_selector(selector)
+
+func traverse_query(query: GsomModQueryBase) -> Array[StringName]:
+	return ModDeps.traverse_query(query)
+
+func traverse_content(content: GsomModContent) -> Array[StringName]:
+	return ModDeps.traverse_content(content)
