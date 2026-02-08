@@ -40,24 +40,12 @@ func check_is_host() -> bool:
 ## - You can't produce actions for other player controllers (possible with events).
 ##
 ## IMPORTANT:
-## - Always pair with `_apply_actions` implementation: `actions` are delivered verbatim.
+## - Always pair with `pawn._apply_actions` format: `actions` are delivered verbatim.
 ## - Channel is unreliable. Packets may be lost or ignored due to out-of-order.
 ## - Packet ordering is implemented by the Core, no need to encode and check it.
 func _local_tick(_dt: float) -> Variant:
 	assert(false, "Not implemented")
 	return null
-
-## [required] Apply the actions from `_local_tick`.
-##
-## - Server applies actions from each peer to their respective IGsomPlayer.
-## - Client self-applies their own actions for smooth prediction.
-##
-## IMPORTANT:
-## - Always pair with `_local_tick` implementation: `actions` are delivered verbatim.
-## - Channel is unreliable. Packets may be lost or ignored due to out-of-order.
-## - Packet ordering is implemented by the Core, no need to encode and check it.
-func _apply_actions(_actions: Variant) -> void:
-	assert(false, "Not implemented")
 
 ## [optional server] Update the player, based on their peer changes.
 ##

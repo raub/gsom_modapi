@@ -11,11 +11,7 @@ func _get_default_tags() -> Array[StringName]:
 	return [&"controller"]
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	return {
-		&"view": "fps",
-	}
+	return {}
 
 func _get_default_caps() -> Array[StringName]:
-	return [
-		&"controller",
-	]
+	return [&"controller"]

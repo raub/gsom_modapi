@@ -27,25 +27,49 @@ enum SpawnLayer {
 	MENU,
 }
 
-## [core] Which peer is the host (at process startup - this one).
-##
-## Connecting to other hosts should re-assign `host_identity`.
-func get_host_identity() -> StringName:
-	assert(false, "Not implemented")
-	return &""
+#region Load
 
-## [core] Is this instance the host?
+## [core server] Declare a new set of loading resources.
 ##
-## You always launch the game process as a host.
-## Will become false upon successfully joining the game.
-func check_is_host() -> bool:
+## How resources are loaded is (Core) implementation detail.
+## This may range from "not-at-all" to "threaded loader" - either works.
+##
+## Additional `IGameMode` callbacks are served if instance exists:
+## * When load starts, `IGameMode._sv_load_start` is called.
+## * When client load ends, `IGameMode._cl_load_complete` is called.
+## * Client game mode must call `net._cl_load_complete` as the last step.
+##
+## In this workflow, Core is responsible for loading of the raw resources,
+## while game modes can react to loading state changes. In the end,
+## game modes have a chance to make final preparations,
+## before calling `net._cl_load_complete` (e.g. force-init materials and such).
+func _sv_load_start(_label: String, _resources: Array[StringName]) -> void:
 	assert(false, "Not implemented")
-	return true
 
-## [core] Identity of the local peer.
-func get_local_identity() -> StringName:
+## [core server] Request background (pre-) loading.
+##
+## This is just a hint to preload some stuff before actual `_sv_load_start`.
+## It won't trigger a new epoch and won't reflect on peer statuses.
+##
+## Resources from this load hint accumulate until next `_sv_load_start`.
+## Upon which the records are flushed - so they either re-appear
+## in the next epoch list, or get discarded.
+##
+## Example scenario: you are in the room with 2 exits, each leads to a
+## different biome, each biome has it's own load screen/scene.
+## Now, you can preload both, so whichever player chooses - shows the loading
+## screen immediately. Also because a new epoch is called and it doesn't include
+## the unused biome, that resource is silently discarded.
+func _sv_load_prefetch(_resources: Array[StringName]) -> void:
 	assert(false, "Not implemented")
-	return &""
+
+## [core] Report loading complete status from the client.
+##
+## Game modes call this to report complete readiness to start playing.
+func _cl_load_complete() -> void:
+	assert(false, "Not implemented")
+
+#endregion
 
 #region Instigator
 
@@ -204,6 +228,26 @@ func _has_instigator_attr_float(_identity: StringName, _key: StringName) -> bool
 #endregion Instigator
 
 #region Peer
+
+## [core] Which peer is the host (at process startup - this one).
+##
+## Connecting to other hosts should re-assign `host_identity`.
+func get_host_identity() -> StringName:
+	assert(false, "Not implemented")
+	return &""
+
+## [core] Is this instance the host?
+##
+## You always launch the game process as a host.
+## Will become false upon successfully joining the game.
+func check_is_host() -> bool:
+	assert(false, "Not implemented")
+	return true
+
+## [core] Identity of the local peer.
+func get_local_identity() -> StringName:
+	assert(false, "Not implemented")
+	return &""
 
 ## [core] This process' local peer.
 ##

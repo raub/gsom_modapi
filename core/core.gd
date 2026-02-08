@@ -12,9 +12,35 @@ func _get_version() -> StringName:
 	return &"0.0.1"
 
 func _mod_init() -> void:
-	GsomModapi.register(preload("./content/mode_dungeon/desc.tres"))
-	GsomModapi.register(preload("./content/char_player/desc.tres"))
-	GsomModapi.register(preload("./content/ctl_player/desc.tres"))
+	var mode_dungeon: GsomModContentGamemode = GsomModContentGamemode.new()
+	mode_dungeon.ui_title = "Escape"
+	mode_dungeon.ui_tooltip = "Play corridor-shooter mode in research labs."
+	mode_dungeon.ui_summary = "Clear rooms and corridors to escape the lab complex."
+	mode_dungeon.path_thumbnail = &"res://core/content/mode_dungeon/dungeon.png"
+	mode_dungeon.path_scene = &"res://core/content/mode_dungeon/mode_dungeon.tscn"
+	mode_dungeon.path_replicator = &"res://core/content/mode_dungeon/replicator.gd"
+	mode_dungeon.dep_queries = [
+		GsomModQueryFilter.from_tags_all([&"dungeon", &"always"]),
+		GsomModQueryFilter.from_tags_all([&"player", &"fps"]),
+	]
+	
+	var room_labs: GsomModContentRoom = GsomModContentRoom.new()
+	room_labs.add_tags([&"core", &"dungeon"])
+	room_labs.path_scene = &"res://core/content/room_labs/room_labs.tscn"
+
+	var char_player: GsomModContentCharacter = GsomModContentCharacter.new()
+	char_player.add_tags([&"core", &"dungeon", &"character", &"always"])
+	char_player.path_scene = &"res://core/content/char_player/char_player.tscn"
+
+	var ctl_player: GsomModContentController = GsomModContentController.new()
+	ctl_player.add_tags([&"core", &"player", &"fps"])
+	ctl_player.path_scene = &"res://core/content/ctl_player/ctl_player.tscn"
+
+	GsomModapi.register(mode_dungeon)
+	GsomModapi.register(room_labs)
+	
+	GsomModapi.register(char_player)
+	GsomModapi.register(ctl_player)
 
 func _core_main() -> void:
 	__svc_network = GsomNetworkImpl.new()
@@ -38,11 +64,11 @@ func _core_main() -> void:
 	tween.tween_callback(func () -> void: splash.queue_free())
 	tween.tween_callback(__show_menu)
 	
-	var sel: GsomModSelector = preload("res://core/content/selectors/initial.tres")
-	var precache_list: Array[StringName] = GsomModapi.traverse_selector(sel)
+	var query: GsomModQueryFilter = GsomModQueryFilter.new()
+	query.kinds = [&"gamemode"]
+	var precache_list: Array[StringName] = GsomModapi.traverse_query(query)
 	for path: StringName in precache_list:
 		__precache.call_deferred(path)
-
 
 func __precache(path: StringName) -> void:
 	var res: Resource = load(path)

@@ -42,3 +42,14 @@ class_name GsomModQueryFilter
 
 ## Ban specific content keys
 @export var key_exclude: Array[StringName] = []
+
+
+static func from_tags_any(init_tags: Array[StringName]) -> GsomModQueryFilter:
+	var query: GsomModQueryFilter = GsomModQueryFilter.new()
+	query.tags_any = init_tags
+	return query
+
+static func from_tags_all(init_tags: Array[StringName]) -> GsomModQueryFilter:
+	var query: GsomModQueryFilter = GsomModQueryFilter.new()
+	query.tags_all = init_tags
+	return query

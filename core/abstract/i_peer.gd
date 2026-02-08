@@ -34,6 +34,24 @@ func _get_connected() -> bool:
 	assert(false, "Not implemented")
 	return false
 
+## [core] Which epoch does this peer load into right now.
+##
+## The epoch changes as the server requests loading a new set of resources.
+## The server tracks how all peers progress through loading.
+func _get_load_epoch() -> int:
+	assert(false, "Not implemented")
+	return 0
+
+## [core] The current loading progress as reported by the peer.
+##
+## Clamped to [0..1].
+## Relevant to `_get_load_epoch()`.
+##
+## It is game mode specific - whether to wait for all players to load.
+func _get_load_progress() -> float:
+	assert(false, "Not implemented")
+	return 0
+
 ## Is this the local peer?
 ##
 ## Each instance only has one "local" peer.

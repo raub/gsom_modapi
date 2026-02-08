@@ -83,3 +83,16 @@ func _sv_peer_drop(_peer: IGsomPeer) -> void:
 ## When a peer disconnects/reconnects, it counts as an "update" too.
 func _sv_peer_update(_peer: IGsomPeer) -> void:
 	pass
+
+## [server] What to do when loading starts.
+##
+## The loading is implemented by the core network service.
+## In this callback we only adjust the gameplay state.
+func _sv_load_start(_label: String) -> void:
+	assert(false, "Not implemented")
+
+## [client] Perform additional loading tasks after loading resources.
+##
+## This must call `net._cl_load_complete` in order to report readiness.
+func _cl_load_complete() -> void:
+	assert(false, "Not implemented")

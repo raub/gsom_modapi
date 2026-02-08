@@ -232,7 +232,7 @@ func _get_default_caps() -> Array[StringName]:
 
 # QoL helpers
 
-## Does this tag present?
+## Is this tag present?
 func has_tag(tag: StringName) -> bool:
 	return __get_tags().has(tag)
 
@@ -247,3 +247,21 @@ func has_attr(attr: StringName) -> bool:
 ## Get attribute value or default
 func get_attr(attr_key: StringName, default: Variant = null) -> Variant:
 	return __get_attrs().get(attr_key, default)
+
+## Add more tags
+func add_tags(new_tags: Array[StringName]) -> void:
+	var combined: Array[StringName] = __get_tags().duplicate()
+	combined.append_array(new_tags)
+	__set_tags(combined)
+
+## Add more caps
+func add_caps(new_caps: Array[StringName]) -> void:
+	var combined: Array[StringName] = __get_caps().duplicate()
+	combined.append_array(new_caps)
+	__set_caps(combined)
+
+## Add/override attrs
+func add_attrs(new_attrs: Dictionary[StringName, Variant]) -> void:
+	var combined: Dictionary[StringName, Variant] = __get_attrs().duplicate()
+	combined.merge(new_attrs, true)
+	__set_attrs(combined)

@@ -4,37 +4,11 @@ class_name GsomNetworkImpl
 signal gamemode_started()
 signal gamemode_ended()
 
-enum EventKind {
-	# New entity created (net_id, content_id, transform, data)
-	SPAWN,
-	# Remove entity by net_id
-	DESPAWN,
-	# Apply player action from peer
-	ACTION,
-	# Apply snapshot changes to world objects
-	SNAPSHOT,
-	# Internal message from entity to entity
-	ENTITY,
-	# Broadcast peer update
-	PEER,
-	# Broadcast instigator update
-	INSTIGATOR,
-}
-
 var __svc_spawn: SvcSpawn = null
 
-class Event:
-	var kind: EventKind = EventKind.SNAPSHOT
-	var data: Variant = null
-
-class EventDataSpawn:
-	var net_id: int = IGsomNetwork.NET_ID_EMPTY
-	var instigator: StringName = &""
-	var content_id: StringName = &""
-	var layer: IGsomNetwork.SpawnLayer = IGsomNetwork.SpawnLayer.WORLD
-	var init_data: Variant = null
-
-#var __peers: Dictionary[StringName, IGsomPeer] = { local_peer.identity: local_peer }
+#var __peers: Dictionary[StringName, IGsomPeer] = {
+	#local_peer.identity: local_peer
+#}
 
 ## [readonly] This process' local peer.
 ##
@@ -69,6 +43,47 @@ var __gm: IGsomGameMode = null
 func _ready() -> void:
 	__svc_spawn = SvcSpawn.new()
 	GsomModapi.scene.add_child(__svc_spawn)
+
+#region Events
+
+enum EventKind {
+	# New entity created (net_id, content_id, transform, data)
+	SPAWN,
+	# Remove entity by net_id
+	DESPAWN,
+	# Apply player action from peer
+	ACTION,
+	# Apply snapshot changes to world objects
+	SNAPSHOT,
+	# Internal message from entity to entity
+	ENTITY,
+	# Broadcast peer update
+	PEER,
+	# Broadcast instigator update
+	INSTIGATOR,
+	LOAD,
+	PREFETCH,
+}
+
+class Event:
+	var kind: EventKind = EventKind.SNAPSHOT
+	var data: Variant = null
+
+class EventDataSpawn:
+	var net_id: int = IGsomNetwork.NET_ID_EMPTY
+	var instigator: StringName = &""
+	var content_id: StringName = &""
+	var layer: IGsomNetwork.SpawnLayer = IGsomNetwork.SpawnLayer.WORLD
+	var init_data: Variant = null
+
+class EventDataLoad:
+	var epoch_id: int = 0
+	var label: String = ""
+	var resources: Array[StringName] = []
+
+class EventDataPrefetch:
+	var epoch_id: int = 0
+	var resources: Array[StringName] = []
 
 func _sv_spawn(
 	content_id: StringName,
@@ -154,6 +169,10 @@ func __cl_handle_events() -> void:
 			var net_id: int = e.data
 			__shared_despawn(net_id)
 
+#endregion
+
+#region Tick
+
 func __local_tick(dt: float) -> void:
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
 		if entity is not IGsomPlayer:
@@ -196,6 +215,8 @@ func _physics_process(dt: float) -> void:
 	
 	__flush_events()
 
+#endregion
+
 func gamemode_start(content_id: StringName) -> void:
 	if !check_is_host() or __gm:
 		return
@@ -226,6 +247,8 @@ func validate_handshake(_data: Dictionary) -> String:
 	assert(false, "Not implemented")
 	return "Validation not implemented."
 
+#region Instigator
+
 func _sv_set_attr_int(key: StringName, value: int) -> void:
 	var instigator: GsomInstigatorImpl = _get_instigator(key) as GsomInstigatorImpl
 	if instigator:
@@ -246,8 +269,9 @@ func _sv_set_attr_float(key: StringName, value: float) -> void:
 	if instigator:
 		instigator.net_set_attr_float(key, value)
 
+#endregion
 
-
+#region Peer
 
 func get_local_peer() -> IGsomPeer:
 	return local_peer
@@ -394,3 +418,72 @@ func _get_player(_identity: StringName) -> IGsomPlayer:
 
 func _get_players() -> Array[IGsomPlayer]:
 	return []
+
+#endregion
+
+#region Load
+
+class LoadEpoch:
+	var epoch_id: int = 0
+	var label: String = ""
+	var resources: Dictionary[StringName, Resource] = {}
+
+var __load_epoch: LoadEpoch = LoadEpoch.new()
+var __load_epoch_next: LoadEpoch = null
+var __load_prefetch: Dictionary[StringName, Resource] = {}
+
+func _sv_load_start(label: String, resources: Array[StringName]) -> void:
+	if !check_is_host():
+		return
+	
+	var e: Event = Event.new()
+	e.kind = EventKind.LOAD
+	var ev_data: EventDataLoad = EventDataLoad.new()
+	ev_data.epoch_id = __load_epoch.id + 1
+	ev_data.label = label
+	ev_data.resources = resources.duplicate()
+	e.data = ev_data
+	__shared_load(ev_data)
+	__events_out.append(e)
+
+func __shared_load(ev_data: EventDataLoad) -> void:
+	__load_epoch_next = LoadEpoch.new()
+	__load_epoch_next.epoch_id = ev_data.epoch_id
+	__load_epoch_next.label = ev_data.label
+	
+	for path: StringName in ev_data.resources:
+		if __load_epoch.resources.has(path):
+			__load_epoch_next.resources[path] = __load_epoch.resources[path]
+		elif __load_prefetch.has(path):
+			__load_epoch_next.resources[path] = __load_prefetch[path]
+		else:
+			__load_epoch_next.resources[path] = null
+	
+	for path: StringName in ev_data.resources:
+		__load_into_epoch.call_deferred(ev_data.epoch_id, path)
+
+func __load_into_epoch(epoch_id: int, path: StringName) -> void:
+	if __load_epoch_next.epoch_id != epoch_id:
+		return
+	__load_epoch_next.resources[path] = load(path)
+	prints("__load_into_epoch", epoch_id, path)
+	var count_loaded: float = 0.0
+	for rc: Resource in __load_epoch_next.resources.values():
+		if rc:
+			count_loaded += 1.0
+	var percent = float(__load_epoch_next.resources.size()) / count_loaded
+	var peer = get_local_peer()
+	
+
+func __load_into_prefetch(path: StringName) -> void:
+	var res: Resource = load(path)
+	__precached.append(res)
+	prints("Precached:", path, Time.get_ticks_usec())
+
+func _sv_load_prefetch(_resources: Array[StringName]) -> void:
+	pass
+
+func _cl_load_complete() -> void:
+	pass
+
+#endregion
