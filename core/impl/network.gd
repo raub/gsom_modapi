@@ -5,10 +5,8 @@ signal gamemode_started()
 signal gamemode_ended()
 
 var __svc_spawn: SvcSpawn = null
-
-#var __peers: Dictionary[StringName, IGsomPeer] = {
-	#local_peer.identity: local_peer
-#}
+var __peers: Dictionary[StringName, GsomPeerImpl] = {}
+var __instigators: Dictionary[StringName, GsomInstigatorImpl] = {}
 
 ## [readonly] This process' local peer.
 ##
@@ -33,6 +31,8 @@ func _init() -> void:
 	local_peer.net_set_instigator(instigator)
 	
 	host_identity = local_peer._get_identity()
+	__instigators[host_identity] = instigator
+	__peers[host_identity] = local_peer
 
 var nextId: int = 0
 var __events_in: Array[Event] = []
@@ -43,6 +43,25 @@ var __gm: IGsomGameMode = null
 func _ready() -> void:
 	__svc_spawn = SvcSpawn.new()
 	GsomModapi.scene.add_child(__svc_spawn)
+
+func _cl_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
+	assert(false, "Not implemented")
+
+func _sv_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
+	assert(false, "Not implemented")
+
+func _get_entity(_net_id: int) -> IGsomEntity:
+	if !__svc_spawn:
+		return null
+	return __svc_spawn.entities_by_id.get(_net_id, null)
+
+func _get_entities_by_layer(_layer: SpawnLayer) -> Array[IGsomEntity]:
+	var entities: Array[IGsomEntity] = []
+	if !__svc_spawn or !__svc_spawn.entities_by_layer.has(_layer):
+		return entities
+	for entity: IGsomEntity in __svc_spawn.entities_by_layer[_layer].values():
+		entities.append(entity)
+	return entities
 
 #region Events
 
@@ -140,6 +159,9 @@ func __sv_handle_events() -> void:
 			pass
 		if e.kind == EventKind.CL_ACTION:
 			pass
+		if e.kind == EventKind.CL_PROGRESS:
+			var ev_data: EventDataProgress = e.data
+			__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
 
 func __shared_spawn(ev_data: EventDataSpawn) -> IGsomEntity:
 	#var gm_id: int = __gm.net_id if __gm else IGsomNetwork.NET_ID_EMPTY
@@ -176,6 +198,16 @@ func __cl_handle_events() -> void:
 				continue # already despawned
 			var net_id: int = e.data
 			__shared_despawn(net_id)
+		if e.kind == EventKind.SV_LOAD:
+			if check_is_host():
+				continue # host has already entered this load epoch
+			var load_data: EventDataLoad = e.data
+			__shared_load(load_data)
+		if e.kind == EventKind.SV_PREFETCH:
+			if check_is_host():
+				continue # host has already performed the prefetch
+			var prefetch_data: EventDataPrefetch = e.data
+			__shared_prefetch(prefetch_data)
 
 #endregion
 
@@ -257,23 +289,77 @@ func validate_handshake(_data: Dictionary) -> String:
 
 #region Instigator
 
-func _sv_set_attr_int(key: StringName, value: int) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(key) as GsomInstigatorImpl
+func _sv_register_instigator(
+	_identity: StringName,
+	_kind: IGsomInstigator.Kind,
+	_label: String,
+	_content_id: StringName = &"",
+) -> IGsomInstigator:
+	if !check_is_host():
+		return null
+	var instigator: GsomInstigatorImpl = GsomInstigatorImpl.new()
+	instigator.net_set_identity(_identity)
+	instigator.net_set_kind(_kind)
+	instigator.net_set_label(_label)
+	if _content_id != &"":
+		instigator.net_set_attr_string(&"content_id", String(_content_id))
+	__instigators[_identity] = instigator
+	return instigator
+
+func _get_instigator(_identity: StringName) -> IGsomInstigator:
+	return __instigators.get(_identity, null)
+
+func _sv_set_instigator_label(
+	_identity: StringName,
+	_label: String,
+) -> void:
+	if !check_is_host():
+		return
+	var instigator: GsomInstigatorImpl = _get_instigator(_identity) as GsomInstigatorImpl
+	if instigator:
+		instigator.net_set_label(_label)
+
+func _sv_set_instigator_attr_int(
+	identity: StringName,
+	key: StringName,
+	value: int,
+) -> void:
+	if !check_is_host():
+		return
+	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
 	if instigator:
 		instigator.net_set_attr_int(key, value)
 
-func _sv_set_attr_bool(key: StringName, value: bool) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(key) as GsomInstigatorImpl
+func _sv_set_instigator_attr_bool(
+	identity: StringName,
+	key: StringName,
+	value: bool,
+) -> void:
+	if !check_is_host():
+		return
+	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
 	if instigator:
 		instigator.net_set_attr_bool(key, value)
 
-func _sv_set_attr_string(key: StringName, value: String) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(key) as GsomInstigatorImpl
+func _sv_set_instigator_attr_string(
+	identity: StringName,
+	key: StringName,
+	value: String,
+) -> void:
+	if !check_is_host():
+		return
+	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
 	if instigator:
 		instigator.net_set_attr_string(key, value)
 
-func _sv_set_attr_float(key: StringName, value: float) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(key) as GsomInstigatorImpl
+func _sv_set_instigator_attr_float(
+	identity: StringName,
+	key: StringName,
+	value: float,
+) -> void:
+	if !check_is_host():
+		return
+	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
 	if instigator:
 		instigator.net_set_attr_float(key, value)
 
@@ -293,91 +379,28 @@ func check_is_host() -> bool:
 func get_local_identity() -> StringName:
 	return local_peer._get_identity()
 
-func _cl_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
-	assert(false, "Not implemented")
-
-func _sv_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
-	assert(false, "Not implemented")
-
-func _get_entity(_net_id: int) -> IGsomEntity:
-	assert(false, "Not implemented")
-	return null
-
-func _get_entities_by_layer(_layer: SpawnLayer) -> Array[IGsomEntity]:
-	assert(false, "Not implemented")
-	return []
-
 func _get_peer(_identity: StringName) -> IGsomPeer:
-	assert(false, "Not implemented")
-	return null
+	return __peers.get(_identity, null)
 
 func _get_peers_all() -> Array[IGsomPeer]:
-	assert(false, "Not implemented")
-	return []
+	var peers: Array[IGsomPeer] = []
+	for peer: GsomPeerImpl in __peers.values():
+		peers.append(peer)
+	return peers
 
 func _get_peers_connected() -> Array[IGsomPeer]:
-	assert(false, "Not implemented")
-	return []
-
-func _sv_register_instigator(
-	_identity: StringName,
-	_kind: IGsomInstigator.Kind,
-	_label: String,
-	_content_id: StringName = &"",
-) -> IGsomInstigator:
-	assert(false, "Not implemented")
-	return null
-
-func _get_instigator(_identity: StringName) -> IGsomInstigator:
-	assert(false, "Not implemented")
-	return null
-
-func _sv_set_instigator_label(
-	_identity: StringName,
-	_label: String,
-) -> void:
-	assert(false, "Not implemented")
-
-func _sv_set_instigator_attr_int(
-	identity: StringName,
-	key: StringName,
-	value: int,
-) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
-	if instigator:
-		instigator.net_set_attr_int(key, value)
-
-func _sv_set_instigator_attr_bool(
-	identity: StringName,
-	key: StringName,
-	value: bool,
-) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
-	if instigator:
-		instigator.net_set_attr_bool(key, value)
-
-func _sv_set_instigator_attr_string(
-	identity: StringName,
-	key: StringName,
-	value: String,
-) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
-	if instigator:
-		instigator.net_set_attr_string(key, value)
-
-func _sv_set_instigator_attr_float(
-	identity: StringName,
-	key: StringName,
-	value: float,
-) -> void:
-	var instigator: GsomInstigatorImpl = _get_instigator(identity) as GsomInstigatorImpl
-	if instigator:
-		instigator.net_set_attr_float(key, value)
+	var peers: Array[IGsomPeer] = []
+	for peer: GsomPeerImpl in __peers.values():
+		if peer._get_connected():
+			peers.append(peer)
+	return peers
 
 func _sv_set_peer_label(
 	identity: StringName,
 	label: String,
 ) -> void:
+	if !check_is_host():
+		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
 	if peer:
 		peer.net_set_label(label)
@@ -387,6 +410,8 @@ func _sv_set_peer_attr_int(
 	key: StringName,
 	value: int,
 ) -> void:
+	if !check_is_host():
+		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
 	if peer:
 		peer.net_set_attr_int(key, value)
@@ -396,6 +421,8 @@ func _sv_set_peer_attr_bool(
 	key: StringName,
 	value: bool,
 ) -> void:
+	if !check_is_host():
+		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
 	if peer:
 		peer.net_set_attr_bool(key, value)
@@ -405,6 +432,8 @@ func _sv_set_peer_attr_string(
 	key: StringName,
 	value: String,
 ) -> void:
+	if !check_is_host():
+		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
 	if peer:
 		peer.net_set_attr_string(key, value)
@@ -414,18 +443,29 @@ func _sv_set_peer_attr_float(
 	key: StringName,
 	value: float,
 ) -> void:
+	if !check_is_host():
+		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
 	if peer:
 		peer.net_set_attr_float(key, value)
 
 func _get_game_mode() -> IGsomGameMode:
-	return null
+	return __gm
 
 func _get_player(_identity: StringName) -> IGsomPlayer:
+	for player: IGsomPlayer in _get_players():
+		if player.peer_identity == _identity:
+			return player
 	return null
 
 func _get_players() -> Array[IGsomPlayer]:
-	return []
+	var players: Array[IGsomPlayer] = []
+	if !__svc_spawn:
+		return players
+	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
+		if entity is IGsomPlayer:
+			players.append(entity as IGsomPlayer)
+	return players
 
 #endregion
 
@@ -443,6 +483,8 @@ var __load_prefetch: Dictionary[StringName, Resource] = {}
 func _sv_load_start(label: String, resources: Array[StringName]) -> void:
 	if !check_is_host():
 		return
+	if __gm:
+		__gm._sv_load_start(label)
 	
 	var e: Event = Event.new()
 	e.kind = EventKind.SV_LOAD
@@ -459,6 +501,10 @@ func __shared_load(ev_data: EventDataLoad) -> void:
 	__load_epoch_next.epoch_id = ev_data.epoch_id
 	__load_epoch_next.label = ev_data.label
 	
+	for peer: GsomPeerImpl in __peers.values():
+		peer.net_set_load_epoch(ev_data.epoch_id)
+		peer.net_set_load_progress(0.0)
+	
 	for path: StringName in ev_data.resources:
 		if __load_epoch.resources.has(path):
 			__load_epoch_next.resources[path] = __load_epoch.resources[path]
@@ -469,22 +515,46 @@ func __shared_load(ev_data: EventDataLoad) -> void:
 	
 	for path: StringName in ev_data.resources:
 		__load_into_epoch.call_deferred(ev_data.epoch_id, path)
+	
+	# This cache only applies until next load epoch begins.
+	__load_prefetch.clear()
+	
+	if ev_data.resources.is_empty():
+		if __gm:
+			__gm._cl_load_complete()
+		else:
+			_cl_load_complete()
 
 func __shared_progress(peer: GsomPeerImpl, ev_data: EventDataProgress) -> void:
 	if peer._get_load_epoch() != ev_data.epoch_id:
 		return
-	peer.net_set_load_progress(ev_data.progress)
+	peer.net_set_load_progress(clampf(ev_data.progress, 0.0, 1.0))
+
+func __commit_load_epoch(epoch_id: int) -> void:
+	if __load_epoch_next and __load_epoch_next.epoch_id == epoch_id:
+		__load_epoch = __load_epoch_next
+		__load_epoch_next = null
 
 func __load_into_epoch(epoch_id: int, path: StringName) -> void:
-	if __load_epoch_next.epoch_id != epoch_id:
+	if !__load_epoch_next or __load_epoch_next.epoch_id != epoch_id:
 		return
-	__load_epoch_next.resources[path] = load(path)
+	if !__load_epoch_next.resources.has(path):
+		return
+	if __load_epoch_next.resources[path] == null:
+		__load_epoch_next.resources[path] = load(path)
 	prints("__load_into_epoch", epoch_id, path)
+	var count_total: float = float(__load_epoch_next.resources.size())
+	if count_total <= 0.0:
+		if __gm:
+			__gm._cl_load_complete()
+		else:
+			_cl_load_complete()
+		return
 	var count_loaded: float = 0.0
 	for rc: Resource in __load_epoch_next.resources.values():
 		if rc:
 			count_loaded += 1.0
-	var progress: float = float(__load_epoch_next.resources.size()) / count_loaded
+	var progress: float = count_loaded / count_total
 	
 	if progress >= 1.0:
 		if __gm:
@@ -496,6 +566,7 @@ func __load_into_epoch(epoch_id: int, path: StringName) -> void:
 	var e: Event = Event.new()
 	e.kind = EventKind.CL_PROGRESS
 	var ev_data: EventDataProgress = EventDataProgress.new()
+	ev_data.epoch_id = epoch_id
 	ev_data.progress = minf(progress, 0.99)
 	e.data = ev_data
 	__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
@@ -507,7 +578,9 @@ func __load_into_prefetch(path: StringName) -> void:
 	prints("Precached:", path, Time.get_ticks_usec())
 
 func __shared_prefetch(ev_data: EventDataPrefetch) -> void:
-	if __load_epoch.epoch_id != ev_data.epoch_id:
+	if __load_epoch_next:
+		return
+	if __load_epoch.epoch_id + 1 != ev_data.epoch_id:
 		return
 	
 	for path: StringName in ev_data.resources:
@@ -528,12 +601,20 @@ func _sv_load_prefetch(resources: Array[StringName]) -> void:
 	__events_out.append(e)
 
 func _cl_load_complete() -> void:
+	var epoch_id: int = __load_epoch_next.epoch_id if __load_epoch_next else __load_epoch.epoch_id
+	if epoch_id <= 0:
+		return
+	var local: GsomPeerImpl = get_local_peer() as GsomPeerImpl
+	if local._get_load_epoch() == epoch_id and local._get_load_progress() >= 1.0:
+		return
 	var e: Event = Event.new()
 	e.kind = EventKind.CL_PROGRESS
 	var ev_data: EventDataProgress = EventDataProgress.new()
+	ev_data.epoch_id = epoch_id
 	ev_data.progress = 1
 	e.data = ev_data
-	__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
+	__shared_progress(local, ev_data)
 	__events_out.append(e)
+	__commit_load_epoch(epoch_id)
 
 #endregion
