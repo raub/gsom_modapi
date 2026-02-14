@@ -48,25 +48,29 @@ func _ready() -> void:
 
 enum EventKind {
 	# New entity created (net_id, content_id, transform, data)
-	SPAWN,
+	SV_SPAWN,
 	# Remove entity by net_id
-	DESPAWN,
+	SV_DESPAWN,
 	# Apply player action from peer
-	ACTION,
+	CL_ACTION,
 	# Apply snapshot changes to world objects
-	SNAPSHOT,
+	SV_SNAPSHOT,
 	# Internal message from entity to entity
 	ENTITY,
 	# Broadcast peer update
-	PEER,
+	SV_PEER,
 	# Broadcast instigator update
-	INSTIGATOR,
-	LOAD,
-	PREFETCH,
+	SV_INSTIGATOR,
+	# Declare load epoch
+	SV_LOAD,
+	# Hint prefetch resources
+	SV_PREFETCH,
+	# Report load progress to server
+	CL_PROGRESS,
 }
 
 class Event:
-	var kind: EventKind = EventKind.SNAPSHOT
+	var kind: EventKind = EventKind.SV_SNAPSHOT
 	var data: Variant = null
 
 class EventDataSpawn:
@@ -80,6 +84,10 @@ class EventDataLoad:
 	var epoch_id: int = 0
 	var label: String = ""
 	var resources: Array[StringName] = []
+
+class EventDataProgress:
+	var epoch_id: int = 0
+	var progress: float = 0
 
 class EventDataPrefetch:
 	var epoch_id: int = 0
@@ -96,7 +104,7 @@ func _sv_spawn(
 	nextId += 1
 	var net_id: int = nextId;
 	var e: Event = Event.new()
-	e.kind = EventKind.SPAWN
+	e.kind = EventKind.SV_SPAWN
 	var ev_data: EventDataSpawn = EventDataSpawn.new()
 	ev_data.net_id = net_id
 	ev_data.instigator = instigator
@@ -114,7 +122,7 @@ func _sv_despawn(net_id: int) -> void:
 	if !check_is_host():
 		return
 	var e: Event = Event.new()
-	e.kind = EventKind.DESPAWN
+	e.kind = EventKind.SV_DESPAWN
 	e.data = net_id
 	__shared_despawn(net_id)
 	__events_out.append(e)
@@ -130,7 +138,7 @@ func __sv_handle_events() -> void:
 	for e: Event in __events_in:
 		if e.kind == EventKind.ENTITY:
 			pass
-		if e.kind == EventKind.ACTION:
+		if e.kind == EventKind.CL_ACTION:
 			pass
 
 func __shared_spawn(ev_data: EventDataSpawn) -> IGsomEntity:
@@ -158,12 +166,12 @@ func __shared_despawn(net_id: int) -> void:
 
 func __cl_handle_events() -> void:
 	for e: Event in __events_in:
-		if e.kind == EventKind.SPAWN:
+		if e.kind == EventKind.SV_SPAWN:
 			if check_is_host():
 				continue # already spawned
 			var ev_data: EventDataSpawn = e.data
 			__shared_spawn(ev_data)
-		if e.kind == EventKind.DESPAWN:
+		if e.kind == EventKind.SV_DESPAWN:
 			if check_is_host():
 				continue # already despawned
 			var net_id: int = e.data
@@ -437,9 +445,9 @@ func _sv_load_start(label: String, resources: Array[StringName]) -> void:
 		return
 	
 	var e: Event = Event.new()
-	e.kind = EventKind.LOAD
+	e.kind = EventKind.SV_LOAD
 	var ev_data: EventDataLoad = EventDataLoad.new()
-	ev_data.epoch_id = __load_epoch.id + 1
+	ev_data.epoch_id = __load_epoch.epoch_id + 1
 	ev_data.label = label
 	ev_data.resources = resources.duplicate()
 	e.data = ev_data
@@ -462,6 +470,11 @@ func __shared_load(ev_data: EventDataLoad) -> void:
 	for path: StringName in ev_data.resources:
 		__load_into_epoch.call_deferred(ev_data.epoch_id, path)
 
+func __shared_progress(peer: GsomPeerImpl, ev_data: EventDataProgress) -> void:
+	if peer._get_load_epoch() != ev_data.epoch_id:
+		return
+	peer.net_set_load_progress(ev_data.progress)
+
 func __load_into_epoch(epoch_id: int, path: StringName) -> void:
 	if __load_epoch_next.epoch_id != epoch_id:
 		return
@@ -471,19 +484,56 @@ func __load_into_epoch(epoch_id: int, path: StringName) -> void:
 	for rc: Resource in __load_epoch_next.resources.values():
 		if rc:
 			count_loaded += 1.0
-	var percent = float(__load_epoch_next.resources.size()) / count_loaded
-	var peer = get_local_peer()
+	var progress: float = float(__load_epoch_next.resources.size()) / count_loaded
 	
+	if progress >= 1.0:
+		if __gm:
+			__gm._cl_load_complete()
+		else:
+			_cl_load_complete()
+		return
+	
+	var e: Event = Event.new()
+	e.kind = EventKind.CL_PROGRESS
+	var ev_data: EventDataProgress = EventDataProgress.new()
+	ev_data.progress = minf(progress, 0.99)
+	e.data = ev_data
+	__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
+	__events_out.append(e)
 
 func __load_into_prefetch(path: StringName) -> void:
 	var res: Resource = load(path)
-	__precached.append(res)
+	__load_prefetch[path] = res
 	prints("Precached:", path, Time.get_ticks_usec())
 
-func _sv_load_prefetch(_resources: Array[StringName]) -> void:
-	pass
+func __shared_prefetch(ev_data: EventDataPrefetch) -> void:
+	if __load_epoch.epoch_id != ev_data.epoch_id:
+		return
+	
+	for path: StringName in ev_data.resources:
+		if !__load_epoch.resources.has(path) and !__load_prefetch.has(path):
+			__load_into_prefetch(path)
+
+func _sv_load_prefetch(resources: Array[StringName]) -> void:
+	if !check_is_host():
+		return
+	
+	var e: Event = Event.new()
+	e.kind = EventKind.SV_PREFETCH
+	var ev_data: EventDataPrefetch = EventDataPrefetch.new()
+	ev_data.epoch_id = __load_epoch.epoch_id + 1
+	ev_data.resources = resources.duplicate()
+	e.data = ev_data
+	__shared_prefetch(ev_data)
+	__events_out.append(e)
 
 func _cl_load_complete() -> void:
-	pass
+	var e: Event = Event.new()
+	e.kind = EventKind.CL_PROGRESS
+	var ev_data: EventDataProgress = EventDataProgress.new()
+	ev_data.progress = 1
+	e.data = ev_data
+	__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
+	__events_out.append(e)
 
 #endregion

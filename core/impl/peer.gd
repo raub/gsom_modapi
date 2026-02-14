@@ -6,9 +6,19 @@ var id: int = IGsomNetwork.NET_ID_EMPTY
 var __instigator: GsomInstigatorImpl = null
 var __connected: bool = true
 
-# Mods don't know about this
+var __epoch_id: int = 0
+var __progress: float = 0
+
+# "net_" - Mods don't know about this
+
 func net_set_instigator(instigator: GsomInstigatorImpl) -> void:
 	__instigator = instigator
+
+func net_set_load_epoch(epoch_id: int) -> void:
+	__epoch_id = epoch_id
+
+func net_set_load_progress(progress: float) -> void:
+	__progress = progress
 
 func _get_id() -> int:
 	return id
@@ -75,3 +85,9 @@ func _has_attr_string(key: StringName) -> bool:
 
 func _has_attr_float(key: StringName) -> bool:
 	return __instigator._has_attr_float(key)
+
+func _get_load_epoch() -> int:
+	return __epoch_id
+
+func _get_load_progress() -> float:
+	return __progress
