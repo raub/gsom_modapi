@@ -226,17 +226,11 @@ func __sv_tick(dt: float) -> void:
 	if !check_is_host():
 		return
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
-		if entity is not IGsomController:
-			continue
-		var as_controller: IGsomController = entity
-		as_controller._sv_tick(dt)
+		entity._sv_tick(dt)
 
 func __cl_tick(dt: float) -> void:
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
-		if entity is not IGsomController:
-			continue
-		var as_controller: IGsomController = entity
-		as_controller._cl_tick(dt)
+		entity._cl_tick(dt)
 
 func __flush_events() -> void:
 	__events_in = __events_out

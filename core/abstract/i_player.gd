@@ -1,4 +1,4 @@
-extends IGsomController
+extends IGsomEntity
 class_name IGsomPlayer
 
 ## This is the base player controller interface.

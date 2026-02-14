@@ -12,9 +12,6 @@ class_name IGsomEntity
 ## Because there is no multiple inheritance, this is how topology is resolved.
 ## You can also reuse a single replicator script for multiple similar content.
 ##
-## Entity only implements snapshot/event sync.
-## If you need to run client/server logic on every tick, use `IGsomController`.
-##
 ## Note, guideline keywords:
 ## - [readonly] - if you mutate it, you will face a terrible fate.
 ## - [optional] - it's ok to omit implementation.
@@ -170,4 +167,12 @@ func _sv_read_event(_peer: IGsomPeer, _e: Event) -> void:
 ## The `Event.data` format is not constrained.
 ## You can use `Event.kind` to identify the specific event types.
 func _cl_read_event(_e: Event) -> void:
+	pass
+
+## [server, optional] Advance the authority simulation.
+func _sv_tick(_dt: float) -> void:
+	pass
+
+## [optional] Update client-side representation.
+func _cl_tick(_dt: float) -> void:
 	pass

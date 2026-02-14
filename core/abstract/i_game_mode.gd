@@ -1,4 +1,4 @@
-extends IGsomController
+extends IGsomEntity
 class_name IGsomGameMode
 
 ## Base interface for all game-modes.

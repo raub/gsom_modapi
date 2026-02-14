@@ -65,7 +65,9 @@ func _core_main() -> void:
 	tween.tween_property(splash, "modulate", Color(1, 1, 1, 0), 0.4)
 	
 	tween.tween_callback(func () -> void: splash.queue_free())
-	tween.tween_callback(func () -> void: __show_menu_on_load_epoch(__svc_network.local_peer._get_load_epoch()))
+	tween.tween_callback(func () -> void:
+		__show_menu_on_load_epoch(__svc_network.local_peer._get_load_epoch())
+	)
 
 func __build_menu_load_resources() -> Array[StringName]:
 	var query: GsomModQueryFilter = GsomModQueryFilter.new()
