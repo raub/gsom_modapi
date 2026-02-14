@@ -1,4 +1,4 @@
-extends Node3D
+extends Node
 
 ## This node captures player controls and applies the actions.
 ## In terms of Position - it follows the currently controlled pawn.
