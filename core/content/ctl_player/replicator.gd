@@ -5,7 +5,6 @@ const __EventInput: StringName = &"input"
 var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
 
 var __sv_actions: Dictionary = {}
-var __local_actions_host: Dictionary = {}
 
 func _local_tick(dt: float) -> Variant:
 	if !check_is_local():
@@ -17,10 +16,9 @@ func _local_tick(dt: float) -> Variant:
 	if actions.is_empty():
 		return null
 	actions["dt"] = dt
-	__local_actions_host = actions
+	_apply_actions(actions) # local prediction (also host-immediate response)
 	if net.check_is_host():
 		return actions
-	_apply_actions(actions) # client prediction
 	var e: Event = Event.new()
 	e.kind = __EventInput
 	e.data = actions
@@ -51,9 +49,6 @@ func _sv_tick(_dt: float) -> void:
 	if !net.check_is_host():
 		return
 	__sv_sync_pawn_link()
-	if check_is_local() and !__local_actions_host.is_empty():
-		__sv_actions = __local_actions_host
-		__local_actions_host = {}
 	if !__sv_actions.is_empty():
 		_apply_actions(__sv_actions)
 		__sv_actions = {}

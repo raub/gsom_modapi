@@ -15,9 +15,7 @@ var __sv_pawn_content_id: StringName = &""
 func _sv_ready() -> void:
 	__sv_room_content_id = __pick_content_id(&"room", [__TagDungeon])
 	__sv_controller_content_id = __pick_content_id(&"controller", [__TagPlayer, __TagFps])
-	__sv_pawn_content_id = __pick_content_id(&"actor", [__TagDungeon, &"character"])
-	if __sv_pawn_content_id == &"":
-		__sv_pawn_content_id = __pick_content_id(&"actor", [&"character"])
+	__sv_pawn_content_id = __pick_content_id(&"actor", [__TagDungeon, __TagPlayer, &"character"])
 	
 	__sv_wait_epoch = net.get_local_peer()._get_load_epoch() + 1
 	__sv_pending_spawn = true
@@ -99,6 +97,11 @@ func __pick_content_id(kind: StringName, required_tags: Array[StringName]) -> St
 	if options.is_empty():
 		return &""
 	return options[0].id
+
+func __load_replicator_script(content: GsomModContent) -> Script:
+	if !content or content.path_replicator == &"":
+		return null
+	return load(content.path_replicator) as Script
 
 func __build_load_resources() -> Array[StringName]:
 	var resources: Array[StringName] = []

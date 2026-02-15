@@ -33,11 +33,15 @@ func pawn_tick(delta: float) -> void:
 
 	var move_basis: Basis = Basis(Vector3.UP, __move_yaw)
 	var direction: Vector3 = (move_basis * Vector3(__move_input.x, 0, __move_input.y)).normalized()
+	
 	if direction:
 		velocity.x = direction.x * SPEED
 		velocity.z = direction.z * SPEED
 	else:
 		velocity.x = move_toward(velocity.x, 0, SPEED)
 		velocity.z = move_toward(velocity.z, 0, SPEED)
-
+	prints("velocity", velocity)
+	# move_and_slide()
+	var before: Vector3 = global_position
 	move_and_slide()
+	prints("delta_pos", global_position - before, "vel", velocity)

@@ -9,6 +9,12 @@ const __MouseSensitivity: float = 0.0025
 const __PitchMin: float = deg_to_rad(-85.0)
 const __PitchMax: float = deg_to_rad(85.0)
 const __EyeHeight: float = 1.6
+const __ActionMoveLeft: StringName = &"move_left"
+const __ActionMoveRight: StringName = &"move_right"
+const __ActionMoveForward: StringName = &"move_forward"
+const __ActionMoveBackward: StringName = &"move_backward"
+const __ActionJump: StringName = &"move_jump"
+const __ActionToggleMouse: StringName = &"move_toggle_mouse"
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -21,6 +27,7 @@ var __pitch: float = 0.0
 var __look_accum: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
+	__ensure_input_actions()
 	__camera.current = false
 	__apply_view()
 
@@ -48,13 +55,24 @@ func controller_set_pawn(pawn: Node3D) -> void:
 func controller_local_tick(_delta: float) -> Dictionary:
 	if !__is_local:
 		return {}
-	if Input.is_action_just_pressed("ui_cancel"):
+	if Input.is_action_just_pressed(__ActionToggleMouse) or Input.is_action_just_pressed("ui_cancel"):
 		__toggle_mouse_mode()
 	__consume_look()
 	__sync_to_pawn()
+	var move: Vector2 = Input.get_vector(
+		__ActionMoveLeft,
+		__ActionMoveRight,
+		__ActionMoveForward,
+		__ActionMoveBackward,
+	)
+	if move == Vector2.ZERO:
+		move = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	return {
-		"move": Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down"),
-		"jump": Input.is_action_just_pressed("ui_accept"),
+		"move": move,
+		"jump": (
+			Input.is_action_just_pressed(__ActionJump)
+			or Input.is_action_just_pressed("ui_accept")
+		),
 		"yaw": __yaw,
 		"pitch": __pitch,
 	}
@@ -116,3 +134,22 @@ func __toggle_mouse_mode() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func __ensure_input_actions() -> void:
+	__ensure_action_keys(__ActionMoveLeft, [KEY_A, KEY_LEFT])
+	__ensure_action_keys(__ActionMoveRight, [KEY_D, KEY_RIGHT])
+	__ensure_action_keys(__ActionMoveForward, [KEY_W, KEY_UP])
+	__ensure_action_keys(__ActionMoveBackward, [KEY_S, KEY_DOWN])
+	__ensure_action_keys(__ActionJump, [KEY_SPACE])
+	__ensure_action_keys(__ActionToggleMouse, [KEY_ESCAPE])
+
+func __ensure_action_keys(action: StringName, keys: Array[Key]) -> void:
+	if !InputMap.has_action(action):
+		InputMap.add_action(action)
+	var existing_events: Array[InputEvent] = InputMap.action_get_events(action)
+	if !existing_events.is_empty():
+		return
+	for keycode: Key in keys:
+		var key_event: InputEventKey = InputEventKey.new()
+		key_event.physical_keycode = keycode
+		InputMap.action_add_event(action, key_event)
