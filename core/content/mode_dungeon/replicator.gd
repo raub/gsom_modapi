@@ -52,10 +52,12 @@ func __spawn_game_start() -> void:
 		push_error("Dungeon mode has no player pawn content with required tags.")
 		return
 	
-	for peer: IGsomPeer in net._get_peers_connected():
-		__sv_spawn_player_session(peer._get_identity())
+	var peers: Array[IGsomPeer] = net._get_peers_connected()
+	for i: int in peers.size():
+		var peer: IGsomPeer = peers[i]
+		__sv_spawn_player_session(peer._get_identity(), i)
 
-func __sv_spawn_player_session(peer_identity: StringName) -> void:
+func __sv_spawn_player_session(peer_identity: StringName, slot_index: int) -> void:
 	var player: IGsomPlayer = net._sv_spawn(
 		__sv_controller_content_id,
 		IGsomNetwork.SpawnLayer.CONTROLLERS,
@@ -65,16 +67,25 @@ func __sv_spawn_player_session(peer_identity: StringName) -> void:
 	if !player:
 		push_error("Dungeon mode failed to spawn controller for peer '%s'." % String(peer_identity))
 		return
+	var pawn_init_data: Dictionary = {
+		"xf": __sv_player_spawn_transform(slot_index),
+	}
 	var pawn: IGsomPawn = net._sv_spawn(
 		__sv_pawn_content_id,
 		IGsomNetwork.SpawnLayer.ACTORS,
-		null,
+		pawn_init_data,
 		peer_identity,
 	) as IGsomPawn
 	if !pawn:
 		push_error("Dungeon mode failed to spawn pawn for peer '%s'." % peer_identity)
 		return
 	__sv_possess_player(player, pawn)
+
+func __sv_player_spawn_transform(slot_index: int) -> Transform3D:
+	var xf: Transform3D = Transform3D.IDENTITY
+	# RoomLabs has blocking geometry around the origin; spawn in clear space.
+	xf.origin = Vector3(-2.0 + float(slot_index) * 1.5, 1.2, 2.0)
+	return xf
 
 func __sv_possess_player(player: IGsomPlayer, pawn: IGsomPawn) -> void:
 	if !player or !pawn:

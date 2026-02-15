@@ -1,5 +1,11 @@
 extends IGsomPawn
 
+func _cl_ready() -> void:
+	__apply_spawn_init()
+
+func _sv_ready() -> void:
+	__apply_spawn_init()
+
 func _apply_actions(actions: Variant) -> void:
 	if typeof(actions) != TYPE_DICTIONARY:
 		return
@@ -67,3 +73,13 @@ func __check_owned_by_local_player() -> bool:
 	if !player:
 		return false
 	return player.check_is_local()
+
+func __apply_spawn_init() -> void:
+	if typeof(init_data) != TYPE_DICTIONARY:
+		return
+	var pawn: CharPlayer = target as CharPlayer
+	if !pawn:
+		return
+	var data: Dictionary = init_data
+	if data.has("xf") and typeof(data["xf"]) == TYPE_TRANSFORM3D:
+		pawn.global_transform = data["xf"]

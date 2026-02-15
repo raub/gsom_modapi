@@ -45,3 +45,4 @@ func pawn_tick(delta: float) -> void:
 	var before: Vector3 = global_position
 	move_and_slide()
 	prints("delta_pos", global_position - before, "vel", velocity)
+	prints("last_motion", get_last_motion(), "slides", get_slide_collision_count())
