@@ -1,23 +1,34 @@
 extends CharacterBody3D
+class_name CharPlayer
 
 
 const SPEED: float = 5.0
 const JUMP_VELOCITY: float = 4.5
 
+var __move_input: Vector2 = Vector2.ZERO
+var __jump_queued: bool = false
+var __move_yaw: float = 0.0
 
-func _physics_process(delta: float) -> void:
+func pawn_apply_actions(actions: Dictionary) -> void:
+	if actions.has("move") and typeof(actions["move"]) == TYPE_VECTOR2:
+		var wish_vec: Vector2 = actions["move"]
+		__move_input = wish_vec.limit_length(1.0)
+	if actions.get("jump", false):
+		__jump_queued = true
+	if actions.has("yaw"):
+		__move_yaw = actions["yaw"]
+
+func pawn_tick(delta: float) -> void:
 	# Add the gravity.
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 
-	# Handle jump.
-	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
+	if __jump_queued and is_on_floor():
 		velocity.y = JUMP_VELOCITY
+	__jump_queued = false
 
-	# Get the input direction and handle the movement/deceleration.
-	# As good practice, you should replace UI actions with custom gameplay actions.
-	var input_dir: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	var direction: Vector3 = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	var move_basis: Basis = Basis(Vector3.UP, __move_yaw)
+	var direction: Vector3 = (move_basis * Vector3(__move_input.x, 0, __move_input.y)).normalized()
 	if direction:
 		velocity.x = direction.x * SPEED
 		velocity.z = direction.z * SPEED

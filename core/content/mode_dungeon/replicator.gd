@@ -14,11 +14,11 @@ var __sv_player_layer: IGsomNetwork.SpawnLayer = IGsomNetwork.SpawnLayer.ACTORS
 
 func _sv_ready() -> void:
 	__sv_room_content_id = __pick_content_id(&"room", [__TagDungeon])
-	__sv_player_content_id = __pick_content_id(&"character", [__TagDungeon, __TagPlayer])
-	__sv_player_layer = IGsomNetwork.SpawnLayer.ACTORS
+	__sv_player_content_id = __pick_content_id(&"controller", [__TagPlayer, __TagFps])
+	__sv_player_layer = IGsomNetwork.SpawnLayer.CONTROLLERS
 	if __sv_player_content_id == &"":
-		__sv_player_content_id = __pick_content_id(&"controller", [__TagPlayer, __TagFps])
-		__sv_player_layer = IGsomNetwork.SpawnLayer.CONTROLLERS
+		__sv_player_content_id = __pick_content_id(&"character", [__TagDungeon, __TagPlayer])
+		__sv_player_layer = IGsomNetwork.SpawnLayer.ACTORS
 	
 	__sv_wait_epoch = net.get_local_peer()._get_load_epoch() + 1
 	__sv_pending_spawn = true

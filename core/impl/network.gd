@@ -45,10 +45,28 @@ func _ready() -> void:
 	GsomModapi.scene.add_child(__svc_spawn)
 
 func _cl_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
-	assert(false, "Not implemented")
+	var e: Event = Event.new()
+	e.kind = EventKind.ENTITY
+	e.data = {
+		"net_id": _net_id,
+		"to_server": true,
+		"peer_identity": get_local_identity(),
+		"event": _e,
+	}
+	__events_out.append(e)
 
 func _sv_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
-	assert(false, "Not implemented")
+	if !check_is_host():
+		return
+	var e: Event = Event.new()
+	e.kind = EventKind.ENTITY
+	e.data = {
+		"net_id": _net_id,
+		"to_server": false,
+		"peer_identity": get_local_identity(),
+		"event": _e,
+	}
+	__events_out.append(e)
 
 func _get_entity(_net_id: int) -> IGsomEntity:
 	if !__svc_spawn:
@@ -156,7 +174,21 @@ func __sv_handle_events() -> void:
 		return
 	for e: Event in __events_in:
 		if e.kind == EventKind.ENTITY:
-			pass
+			var data: Dictionary = e.data
+			if !data.get("to_server", false):
+				continue
+			var net_id: int = data.get("net_id", NET_ID_EMPTY)
+			var ent: IGsomEntity = _get_entity(net_id)
+			if !ent:
+				continue
+			var peer_identity: StringName = data.get("peer_identity", &"")
+			var peer: IGsomPeer = _get_peer(peer_identity)
+			if !peer:
+				continue
+			var payload: IGsomEntity.Event = data.get("event", null)
+			if !payload:
+				continue
+			ent._sv_read_event(peer, payload)
 		if e.kind == EventKind.CL_ACTION:
 			pass
 		if e.kind == EventKind.CL_PROGRESS:
@@ -208,6 +240,31 @@ func __cl_handle_events() -> void:
 				continue # host has already performed the prefetch
 			var prefetch_data: EventDataPrefetch = e.data
 			__shared_prefetch(prefetch_data)
+		if e.kind == EventKind.SV_SNAPSHOT:
+			if check_is_host():
+				continue
+			var snapshots: Array = e.data
+			for item_v: Variant in snapshots:
+				if typeof(item_v) != TYPE_DICTIONARY:
+					continue
+				var item: Dictionary = item_v
+				var net_id: int = item.get("net_id", NET_ID_EMPTY)
+				var ent: IGsomEntity = _get_entity(net_id)
+				if !ent:
+					continue
+				ent._cl_unpack(item.get("snapshot", null))
+		if e.kind == EventKind.ENTITY:
+			var data: Dictionary = e.data
+			if data.get("to_server", true):
+				continue
+			var net_id: int = data.get("net_id", NET_ID_EMPTY)
+			var ent: IGsomEntity = _get_entity(net_id)
+			if !ent:
+				continue
+			var payload: IGsomEntity.Event = data.get("event", null)
+			if !payload:
+				continue
+			ent._cl_read_event(payload)
 
 #endregion
 
@@ -227,6 +284,21 @@ func __sv_tick(dt: float) -> void:
 		return
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
 		entity._sv_tick(dt)
+	var snapshots: Array[Dictionary] = []
+	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
+		var snapshot: Variant = entity._sv_pack(IGsomEntity.RelevancyLod.MAX)
+		if snapshot == null:
+			continue
+		snapshots.append({
+			"net_id": entity.net_id,
+			"snapshot": snapshot,
+		})
+	if snapshots.is_empty():
+		return
+	var e: Event = Event.new()
+	e.kind = EventKind.SV_SNAPSHOT
+	e.data = snapshots
+	__events_out.append(e)
 
 func __cl_tick(dt: float) -> void:
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():

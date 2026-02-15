@@ -31,10 +31,12 @@ func _mod_init() -> void:
 	var char_player: GsomModContentCharacter = GsomModContentCharacter.new()
 	char_player.add_tags([&"core", &"dungeon", &"character", &"always"])
 	char_player.path_scene = &"res://core/content/char_player/char_player.tscn"
+	char_player.path_replicator = &"res://core/content/char_player/replicator.gd"
 
 	var ctl_player: GsomModContentController = GsomModContentController.new()
 	ctl_player.add_tags([&"core", &"player", &"fps"])
 	ctl_player.path_scene = &"res://core/content/ctl_player/ctl_player.tscn"
+	ctl_player.path_replicator = &"res://core/content/ctl_player/replicator.gd"
 
 	GsomModapi.register(mode_dungeon)
 	GsomModapi.register(room_labs)
