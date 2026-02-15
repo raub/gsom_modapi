@@ -9,6 +9,10 @@ var __move_input: Vector2 = Vector2.ZERO
 var __jump_queued: bool = false
 var __move_yaw: float = 0.0
 
+func pawn_reset_actions() -> void:
+	__move_input = Vector2.ZERO
+	__jump_queued = false
+
 func pawn_apply_actions(actions: Dictionary) -> void:
 	if actions.has("move") and typeof(actions["move"]) == TYPE_VECTOR2:
 		var wish_vec: Vector2 = actions["move"]

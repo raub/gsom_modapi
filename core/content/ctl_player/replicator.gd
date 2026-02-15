@@ -6,7 +6,6 @@ var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
 
 var __sv_actions: Dictionary = {}
 var __local_actions_host: Dictionary = {}
-var __pawn_content_id: StringName = &""
 
 func _local_tick(dt: float) -> Variant:
 	if !check_is_local():
@@ -35,7 +34,7 @@ func _apply_actions(actions: Variant) -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		ctl.controller_apply_actions(actions_dict)
-	var pawn: IGsomPawn = __get_pawn()
+	var pawn: IGsomPawn = _get_pawn()
 	if pawn:
 		pawn._apply_actions(actions_dict)
 
@@ -45,10 +44,8 @@ func _sv_peer_update(_peer: IGsomPeer) -> void:
 	if _peer._get_identity() != peer_identity:
 		return
 	if !_peer._get_connected():
-		__sv_dismiss()
+		_sv_dismiss_pawn()
 		return
-	if pawn_id == IGsomNetwork.NET_ID_EMPTY or !__get_pawn():
-		__sv_spawn_and_posess()
 
 func _sv_tick(_dt: float) -> void:
 	if !net.check_is_host():
@@ -75,7 +72,6 @@ func _cl_ready() -> void:
 func _sv_ready() -> void:
 	if peer_identity == &"":
 		peer_identity = instigator
-	__sv_spawn_and_posess()
 	__sync_target_pawn()
 
 func _cl_unpack(snapshot: Variant) -> void:
@@ -118,74 +114,47 @@ func __sync_target_pawn() -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if !ctl:
 		return
-	var pawn: IGsomPawn = __get_pawn()
+	var pawn: IGsomPawn = _get_pawn()
 	if !pawn or pawn.target is not Node3D:
 		ctl.controller_set_pawn(null)
 		return
 	ctl.controller_set_pawn(pawn.target as Node3D)
 
-func __get_pawn() -> IGsomPawn:
+func _get_pawn() -> IGsomPawn:
 	if pawn_id == IGsomNetwork.NET_ID_EMPTY:
 		return null
 	return net._get_entity(pawn_id) as IGsomPawn
 
-func __sv_spawn_and_posess() -> void:
+func _sv_possess_pawn(pawn: IGsomPawn) -> void:
 	if !net.check_is_host():
 		return
-	if pawn_id != IGsomNetwork.NET_ID_EMPTY and __get_pawn():
-		return
-	if __pawn_content_id == &"":
-		__pawn_content_id = __pick_pawn_content_id()
-	if __pawn_content_id == &"":
-		push_error("Player controller '%s' could not find pawn content to spawn." % net_id)
-		return
-	var pawn_entity: IGsomEntity = net._sv_spawn(
-		__pawn_content_id,
-		IGsomNetwork.SpawnLayer.ACTORS,
-		null,
-		peer_identity,
-	)
-	var pawn: IGsomPawn = pawn_entity as IGsomPawn
-	if !pawn:
-		push_error("Spawned player pawn is missing IGsomPawn replicator.")
-		return
-	__sv_posess(pawn)
-
-func __sv_posess(pawn: IGsomPawn) -> void:
 	if !pawn:
 		return
 	if pawn_id == pawn.net_id:
+		if pawn.player_id != net_id:
+			pawn.player_id = net_id
+		__sync_target_pawn()
 		return
-	__sv_dismiss()
+	_sv_dismiss_pawn()
 	pawn_id = pawn.net_id
 	pawn.player_id = net_id
 	pawn._sv_posessed()
+	__sync_target_pawn()
 
-func __sv_dismiss() -> void:
-	var pawn: IGsomPawn = __get_pawn()
+func _sv_dismiss_pawn() -> void:
+	if !net.check_is_host():
+		return
+	var pawn: IGsomPawn = _get_pawn()
 	if pawn:
 		pawn._sv_dismissed()
 		pawn.player_id = IGsomNetwork.NET_ID_EMPTY
 	pawn_id = IGsomNetwork.NET_ID_EMPTY
+	__sync_target_pawn()
 
 func __sv_sync_pawn_link() -> void:
-	var pawn: IGsomPawn = __get_pawn()
+	var pawn: IGsomPawn = _get_pawn()
 	if !pawn:
+		pawn_id = IGsomNetwork.NET_ID_EMPTY
 		return
 	if pawn.player_id != net_id:
 		pawn.player_id = net_id
-
-func __pick_pawn_content_id() -> StringName:
-	var query: GsomModQueryFilter = GsomModQueryFilter.new()
-	query.kinds = [&"character"]
-	query.tags_all = [&"dungeon", &"character"]
-	var options: Array[GsomModContent] = GsomModapi.content_by_query(query)
-	for content: GsomModContent in options:
-		if content.path_replicator:
-			return content.id
-	query.tags_all = [&"character"]
-	options = GsomModapi.content_by_query(query)
-	for content: GsomModContent in options:
-		if content.path_replicator:
-			return content.id
-	return &""

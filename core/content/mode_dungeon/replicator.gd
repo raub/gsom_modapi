@@ -9,16 +9,15 @@ var __sv_pending_spawn: bool = false
 var __sv_started: bool = false
 
 var __sv_room_content_id: StringName = &""
-var __sv_player_content_id: StringName = &""
-var __sv_player_layer: IGsomNetwork.SpawnLayer = IGsomNetwork.SpawnLayer.ACTORS
+var __sv_controller_content_id: StringName = &""
+var __sv_pawn_content_id: StringName = &""
 
 func _sv_ready() -> void:
 	__sv_room_content_id = __pick_content_id(&"room", [__TagDungeon])
-	__sv_player_content_id = __pick_content_id(&"controller", [__TagPlayer, __TagFps])
-	__sv_player_layer = IGsomNetwork.SpawnLayer.CONTROLLERS
-	if __sv_player_content_id == &"":
-		__sv_player_content_id = __pick_content_id(&"character", [__TagDungeon, __TagPlayer])
-		__sv_player_layer = IGsomNetwork.SpawnLayer.ACTORS
+	__sv_controller_content_id = __pick_content_id(&"controller", [__TagPlayer, __TagFps])
+	__sv_pawn_content_id = __pick_content_id(&"actor", [__TagDungeon, &"character"])
+	if __sv_pawn_content_id == &"":
+		__sv_pawn_content_id = __pick_content_id(&"actor", [&"character"])
 	
 	__sv_wait_epoch = net.get_local_peer()._get_load_epoch() + 1
 	__sv_pending_spawn = true
@@ -48,17 +47,41 @@ func __spawn_game_start() -> void:
 	else:
 		net._sv_spawn(__sv_room_content_id, IGsomNetwork.SpawnLayer.WORLD)
 	
-	if __sv_player_content_id == &"":
-		push_error("Dungeon mode has no player content with required tags.")
+	if __sv_controller_content_id == &"":
+		push_error("Dungeon mode has no player controller content with required tags.")
+		return
+	if __sv_pawn_content_id == &"":
+		push_error("Dungeon mode has no player pawn content with required tags.")
 		return
 	
 	for peer: IGsomPeer in net._get_peers_connected():
-		net._sv_spawn(
-			__sv_player_content_id,
-			__sv_player_layer,
-			null,
-			peer._get_identity(),
-		)
+		__sv_spawn_player_session(peer._get_identity())
+
+func __sv_spawn_player_session(peer_identity: StringName) -> void:
+	var player: IGsomPlayer = net._sv_spawn(
+		__sv_controller_content_id,
+		IGsomNetwork.SpawnLayer.CONTROLLERS,
+		null,
+		peer_identity,
+	) as IGsomPlayer
+	if !player:
+		push_error("Dungeon mode failed to spawn controller for peer '%s'." % String(peer_identity))
+		return
+	var pawn: IGsomPawn = net._sv_spawn(
+		__sv_pawn_content_id,
+		IGsomNetwork.SpawnLayer.ACTORS,
+		null,
+		peer_identity,
+	) as IGsomPawn
+	if !pawn:
+		push_error("Dungeon mode failed to spawn pawn for peer '%s'." % peer_identity)
+		return
+	__sv_possess_player(player, pawn)
+
+func __sv_possess_player(player: IGsomPlayer, pawn: IGsomPawn) -> void:
+	if !player or !pawn:
+		return
+	player._sv_possess_pawn(pawn)
 
 func __all_peers_ready(epoch_id: int) -> bool:
 	for peer: IGsomPeer in net._get_peers_connected():
@@ -84,7 +107,8 @@ func __build_load_resources() -> Array[StringName]:
 		resources.append_array(GsomModapi.traverse_content(mode_content))
 	
 	__append_content_resources(__sv_room_content_id, resources)
-	__append_content_resources(__sv_player_content_id, resources)
+	__append_content_resources(__sv_controller_content_id, resources)
+	__append_content_resources(__sv_pawn_content_id, resources)
 	
 	return __uniq_resources(resources)
 

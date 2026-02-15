@@ -51,10 +51,14 @@ func _sv_pack(_lod: RelevancyLod) -> Variant:
 	}
 
 func _sv_posessed() -> void:
-	pass
+	var pawn: CharPlayer = target as CharPlayer
+	if pawn:
+		pawn.pawn_reset_actions()
 
 func _sv_dismissed() -> void:
-	pass
+	var pawn: CharPlayer = target as CharPlayer
+	if pawn:
+		pawn.pawn_reset_actions()
 
 func __check_owned_by_local_player() -> bool:
 	if player_id == IGsomNetwork.NET_ID_EMPTY:

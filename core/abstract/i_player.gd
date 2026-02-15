@@ -53,3 +53,19 @@ func _local_tick(_dt: float) -> Variant:
 ## When the peer disconnects/reconnects, it counts as an "update" too.
 func _sv_peer_update(_peer: IGsomPeer) -> void:
 	pass
+
+## [optional] Get currently controlled pawn (if this player type uses one).
+##
+## This is available on both server and clients.
+func _get_pawn() -> IGsomPawn:
+	return null
+
+## [server optional] Possess a pawn.
+##
+## GameMode is expected to call this on server authority only.
+func _sv_possess_pawn(_pawn: IGsomPawn) -> void:
+	pass
+
+## [server optional] Stop possessing current pawn.
+func _sv_dismiss_pawn() -> void:
+	pass
