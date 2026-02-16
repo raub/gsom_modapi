@@ -18,17 +18,11 @@ func pawn_reset_actions() -> void:
 	__move_input = Vector2.ZERO
 	__jump_queued = false
 
-func pawn_apply_actions(actions: Dictionary) -> void:
-	var move_v: Variant = actions.get("move", null)
-	if typeof(move_v) == TYPE_VECTOR2:
-		var wish_vec: Vector2 = move_v
-		__move_input = wish_vec.limit_length(1.0)
-	var jump_v: Variant = actions.get("jump", null)
-	if typeof(jump_v) == TYPE_BOOL and jump_v:
+func pawn_apply_actions(actions: CtlPlayer.PlayerActions) -> void:
+	__move_input = actions.move.limit_length(1.0)
+	if actions.jump:
 		__jump_queued = true
-	var yaw_v: Variant = actions.get("yaw", null)
-	if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
-		__move_yaw = yaw_v
+	__move_yaw = actions.yaw
 
 func pawn_set_reserved(reserved: bool) -> void:
 	if __is_reserved == reserved:

@@ -11,13 +11,13 @@ func _sv_ready() -> void:
 	__apply_reserved_state()
 
 func _apply_actions(actions: Variant) -> void:
-	if typeof(actions) != TYPE_DICTIONARY:
+	var typed: CtlPlayer.PlayerActions = actions as CtlPlayer.PlayerActions
+	if !typed:
 		return
 	var pawn: CharPlayer = target as CharPlayer
 	if !pawn:
 		return
-	var action_dict: Dictionary = actions
-	pawn.pawn_apply_actions(action_dict)
+	pawn.pawn_apply_actions(typed)
 
 func _sv_tick(dt: float) -> void:
 	if __sv_reserved:

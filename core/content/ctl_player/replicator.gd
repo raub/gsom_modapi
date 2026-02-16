@@ -4,7 +4,7 @@ const __EventInput: StringName = &"input"
 
 var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
 
-var __sv_actions: Dictionary = {}
+var __sv_actions: CtlPlayer.PlayerActions = null
 var __sv_reserved: bool = false
 
 func _local_tick(dt: float) -> Variant:
@@ -13,13 +13,13 @@ func _local_tick(dt: float) -> Variant:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if !ctl:
 		return null
-	var actions: Dictionary = ctl.controller_local_tick(dt)
+	var actions: CtlPlayer.PlayerActions = ctl.controller_local_tick(dt) as CtlPlayer.PlayerActions
+	if !actions:
+		return null
 	var pawn_state: Variant = __cl_pack_owned_pawn_state()
 	if pawn_state != null:
-		actions["pawn_state"] = pawn_state
-	if actions.is_empty():
-		return null
-	actions["dt"] = dt
+		actions.pawn_state = pawn_state
+	actions.dt = dt
 	_apply_actions(actions) # local prediction (also host-immediate response)
 	if net.check_is_host():
 		return actions
@@ -30,15 +30,15 @@ func _local_tick(dt: float) -> Variant:
 	return actions
 
 func _apply_actions(actions: Variant) -> void:
-	if typeof(actions) != TYPE_DICTIONARY:
+	var typed: CtlPlayer.PlayerActions = actions as CtlPlayer.PlayerActions
+	if !typed:
 		return
-	var actions_dict: Dictionary = actions
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
-		ctl.controller_apply_actions(actions_dict)
+		ctl.controller_apply_actions(typed)
 	var pawn: IGsomPawn = _get_pawn()
 	if pawn:
-		pawn._apply_actions(actions_dict)
+		pawn._apply_actions(typed)
 
 func _sv_peer_update(_peer: IGsomPeer) -> void:
 	if !net.check_is_host():
@@ -52,15 +52,15 @@ func _sv_tick(_dt: float) -> void:
 		return
 	__sv_sync_pawn_link()
 	if __sv_reserved:
-		__sv_actions = {}
+		__sv_actions = null
 		return
-	if !__sv_actions.is_empty():
-		var actions: Dictionary = __sv_actions
-		__sv_actions = {}
+	if __sv_actions:
+		var actions: CtlPlayer.PlayerActions = __sv_actions
+		__sv_actions = null
 		_apply_actions(actions)
 		var pawn: IGsomPawn = _get_pawn()
 		if pawn:
-			pawn._sv_apply_authority_state(actions.get("pawn_state", null))
+			pawn._sv_apply_authority_state(actions.pawn_state)
 
 func _cl_tick(_dt: float) -> void:
 	__sync_target_pawn()
@@ -116,9 +116,10 @@ func _sv_read_event(_peer: IGsomPeer, _e: Event) -> void:
 		return
 	if _peer._get_identity() != peer_identity:
 		return
-	if typeof(_e.data) != TYPE_DICTIONARY:
+	var typed: CtlPlayer.PlayerActions = _e.data as CtlPlayer.PlayerActions
+	if !typed:
 		return
-	__sv_actions = __sanitize_actions(_e.data)
+	__sv_actions = typed
 
 func _cl_read_event(_e: Event) -> void:
 	pass
@@ -128,7 +129,7 @@ func _sv_set_reserved(reserved: bool) -> void:
 		return
 	__sv_reserved = reserved
 	if reserved:
-		__sv_actions = {}
+		__sv_actions = null
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		ctl.controller_set_enabled(!reserved)
@@ -193,27 +194,6 @@ func __sv_sync_pawn_link() -> void:
 		return
 	if pawn.player_id != net_id:
 		pawn.player_id = net_id
-
-func __sanitize_actions(raw: Dictionary) -> Dictionary:
-	var safe: Dictionary = {}
-	var move_v: Variant = raw.get("move", null)
-	if typeof(move_v) == TYPE_VECTOR2:
-		safe["move"] = (move_v as Vector2).limit_length(1.0)
-	var jump_v: Variant = raw.get("jump", null)
-	if typeof(jump_v) == TYPE_BOOL:
-		safe["jump"] = jump_v
-	var yaw_v: Variant = raw.get("yaw", null)
-	if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
-		safe["yaw"] = yaw_v
-	var pitch_v: Variant = raw.get("pitch", null)
-	if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
-		safe["pitch"] = pitch_v
-	var dt_v: Variant = raw.get("dt", null)
-	if typeof(dt_v) == TYPE_FLOAT or typeof(dt_v) == TYPE_INT:
-		safe["dt"] = maxf(0.0, dt_v)
-	if raw.has("pawn_state"):
-		safe["pawn_state"] = raw["pawn_state"]
-	return safe
 
 func __cl_pack_owned_pawn_state() -> Variant:
 	var pawn: IGsomPawn = _get_pawn()
