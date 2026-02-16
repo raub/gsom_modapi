@@ -21,14 +21,14 @@ const __ActionToggleMouse: StringName = &"move_toggle_mouse"
 @onready var __camera: Camera3D = $Body/Head/Camera3D
 
 var __is_local: bool = false
+var __is_enabled: bool = true
 var __pawn: Node3D = null
 var __yaw: float = 0.0
 var __pitch: float = 0.0
 var __look_accum: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
-	__ensure_input_actions()
-	__camera.current = false
+	__apply_local_camera_state()
 	__apply_view()
 
 func _exit_tree() -> void:
@@ -36,7 +36,7 @@ func _exit_tree() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _unhandled_input(event: InputEvent) -> void:
-	if !__is_local:
+	if !__check_local_active():
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
@@ -44,16 +44,18 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func controller_set_local(is_local: bool) -> void:
 	__is_local = is_local
-	__camera.current = is_local
-	if is_local and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	__apply_local_camera_state()
+
+func controller_set_enabled(enabled: bool) -> void:
+	__is_enabled = enabled
+	__apply_local_camera_state()
 
 func controller_set_pawn(pawn: Node3D) -> void:
 	__pawn = pawn
 	__sync_to_pawn()
 
 func controller_local_tick(_delta: float) -> Dictionary:
-	if !__is_local:
+	if !__check_local_active():
 		return {}
 	if Input.is_action_just_pressed(__ActionToggleMouse) or Input.is_action_just_pressed("ui_cancel"):
 		__toggle_mouse_mode()
@@ -78,11 +80,12 @@ func controller_local_tick(_delta: float) -> Dictionary:
 	}
 
 func controller_apply_actions(actions: Dictionary) -> void:
-	if actions.has("yaw"):
-		__yaw = actions["yaw"]
-	if actions.has("pitch"):
-		var pitch: float = actions["pitch"]
-		__pitch = clampf(pitch, __PitchMin, __PitchMax)
+	var yaw_v: Variant = actions.get("yaw", null)
+	if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
+		__yaw = yaw_v
+	var pitch_v: Variant = actions.get("pitch", null)
+	if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
+		__pitch = clampf(pitch_v, __PitchMin, __PitchMax)
 	__apply_view()
 	__sync_to_pawn()
 
@@ -94,11 +97,12 @@ func controller_pack_snapshot() -> Dictionary:
 
 func controller_unpack_snapshot(snapshot: Dictionary, can_override_view: bool) -> void:
 	if can_override_view:
-		if snapshot.has("yaw"):
-			__yaw = snapshot["yaw"]
-		if snapshot.has("pitch"):
-			var pitch: float = snapshot["pitch"]
-			__pitch = clampf(pitch, __PitchMin, __PitchMax)
+		var yaw_v: Variant = snapshot.get("yaw", null)
+		if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
+			__yaw = yaw_v
+		var pitch_v: Variant = snapshot.get("pitch", null)
+		if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
+			__pitch = clampf(pitch_v, __PitchMin, __PitchMax)
 		__apply_view()
 	__sync_to_pawn()
 
@@ -135,21 +139,14 @@ func __toggle_mouse_mode() -> void:
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-func __ensure_input_actions() -> void:
-	__ensure_action_keys(__ActionMoveLeft, [KEY_A, KEY_LEFT])
-	__ensure_action_keys(__ActionMoveRight, [KEY_D, KEY_RIGHT])
-	__ensure_action_keys(__ActionMoveForward, [KEY_W, KEY_UP])
-	__ensure_action_keys(__ActionMoveBackward, [KEY_S, KEY_DOWN])
-	__ensure_action_keys(__ActionJump, [KEY_SPACE])
-	__ensure_action_keys(__ActionToggleMouse, [KEY_ESCAPE])
+func __check_local_active() -> bool:
+	return __is_local and __is_enabled
 
-func __ensure_action_keys(action: StringName, keys: Array[Key]) -> void:
-	if !InputMap.has_action(action):
-		InputMap.add_action(action)
-	var existing_events: Array[InputEvent] = InputMap.action_get_events(action)
-	if !existing_events.is_empty():
-		return
-	for keycode: Key in keys:
-		var key_event: InputEventKey = InputEventKey.new()
-		key_event.physical_keycode = keycode
-		InputMap.action_add_event(action, key_event)
+func __apply_local_camera_state() -> void:
+	var is_local_active: bool = __check_local_active()
+	__camera.current = is_local_active
+	if is_local_active:
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

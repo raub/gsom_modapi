@@ -286,6 +286,16 @@ func _sv_set_peer_label(
 ) -> void:
 	assert(false, "Not implemented")
 
+## [core server] Mark a peer as connected/disconnected.
+##
+## This should invoke `_sv_peer_update` in game mode and peer-related players.
+## Temporary disconnect should preserve peer identity for reconnect.
+func _sv_set_peer_connected(
+	_identity: StringName,
+	_connected: bool,
+) -> void:
+	assert(false, "Not implemented")
+
 ## [core] Shortcut to get the peer label.
 ##
 ## This is equivalent for calling `peer._get_label`.

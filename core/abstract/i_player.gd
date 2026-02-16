@@ -69,3 +69,9 @@ func _sv_possess_pawn(_pawn: IGsomPawn) -> void:
 ## [server optional] Stop possessing current pawn.
 func _sv_dismiss_pawn() -> void:
 	pass
+
+## [server optional] Mark this player session as reserved (disconnected ghost).
+##
+## Reserved players keep identity and references, but should not accept local controls.
+func _sv_set_reserved(_reserved: bool) -> void:
+	pass

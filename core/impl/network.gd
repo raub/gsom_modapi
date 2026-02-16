@@ -461,6 +461,17 @@ func _get_peers_connected() -> Array[IGsomPeer]:
 			peers.append(peer)
 	return peers
 
+func _sv_set_peer_connected(identity: StringName, connected: bool) -> void:
+	if !check_is_host():
+		return
+	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
+	if !peer:
+		return
+	if peer._get_connected() == connected:
+		return
+	peer.net_set_connected(connected)
+	__sv_dispatch_peer_update(peer)
+
 func _sv_set_peer_label(
 	identity: StringName,
 	label: String,
@@ -468,8 +479,10 @@ func _sv_set_peer_label(
 	if !check_is_host():
 		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
-	if peer:
-		peer.net_set_label(label)
+	if !peer:
+		return
+	peer.net_set_label(label)
+	__sv_dispatch_peer_update(peer)
 
 func _sv_set_peer_attr_int(
 	identity: StringName,
@@ -479,8 +492,10 @@ func _sv_set_peer_attr_int(
 	if !check_is_host():
 		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
-	if peer:
-		peer.net_set_attr_int(key, value)
+	if !peer:
+		return
+	peer.net_set_attr_int(key, value)
+	__sv_dispatch_peer_update(peer)
 
 func _sv_set_peer_attr_bool(
 	identity: StringName,
@@ -490,8 +505,10 @@ func _sv_set_peer_attr_bool(
 	if !check_is_host():
 		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
-	if peer:
-		peer.net_set_attr_bool(key, value)
+	if !peer:
+		return
+	peer.net_set_attr_bool(key, value)
+	__sv_dispatch_peer_update(peer)
 
 func _sv_set_peer_attr_string(
 	identity: StringName,
@@ -501,8 +518,10 @@ func _sv_set_peer_attr_string(
 	if !check_is_host():
 		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
-	if peer:
-		peer.net_set_attr_string(key, value)
+	if !peer:
+		return
+	peer.net_set_attr_string(key, value)
+	__sv_dispatch_peer_update(peer)
 
 func _sv_set_peer_attr_float(
 	identity: StringName,
@@ -512,8 +531,10 @@ func _sv_set_peer_attr_float(
 	if !check_is_host():
 		return
 	var peer: GsomPeerImpl = _get_peer(identity) as GsomPeerImpl
-	if peer:
-		peer.net_set_attr_float(key, value)
+	if !peer:
+		return
+	peer.net_set_attr_float(key, value)
+	__sv_dispatch_peer_update(peer)
 
 func _get_game_mode() -> IGsomGameMode:
 	return __gm
@@ -532,6 +553,34 @@ func _get_players() -> Array[IGsomPlayer]:
 		if entity is IGsomPlayer:
 			players.append(entity as IGsomPlayer)
 	return players
+
+func __sv_dispatch_peer_join(peer: IGsomPeer) -> void:
+	if !check_is_host():
+		return
+	if __gm:
+		__gm._sv_peer_join(peer)
+	__sv_dispatch_player_peer_update(peer)
+
+func __sv_dispatch_peer_drop(peer: IGsomPeer) -> void:
+	if !check_is_host():
+		return
+	if __gm:
+		__gm._sv_peer_drop(peer)
+	__sv_dispatch_player_peer_update(peer)
+
+func __sv_dispatch_peer_update(peer: IGsomPeer) -> void:
+	if !check_is_host():
+		return
+	if __gm:
+		__gm._sv_peer_update(peer)
+	__sv_dispatch_player_peer_update(peer)
+
+func __sv_dispatch_player_peer_update(peer: IGsomPeer) -> void:
+	var peer_identity: StringName = peer._get_identity()
+	for player: IGsomPlayer in _get_players():
+		if player.peer_identity != peer_identity:
+			continue
+		player._sv_peer_update(peer)
 
 #endregion
 

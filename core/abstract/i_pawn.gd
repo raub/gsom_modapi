@@ -42,3 +42,21 @@ func _sv_posessed() -> void:
 ## By this moment, `player_id` has already been set.
 func _sv_dismissed() -> void:
 	assert(false, "Not implemented")
+
+## [server optional] Mark this pawn as reserved (disconnected ghost).
+##
+## Reserved pawns keep identity and ownership references, but should suspend active control.
+func _sv_set_reserved(_reserved: bool) -> void:
+	pass
+
+## [optional] Local authority state for this pawn.
+##
+## Returned value is controller-specific and is forwarded verbatim to `_sv_apply_authority_state`.
+func _cl_pack_authority_state() -> Variant:
+	return null
+
+## [server optional] Apply authority state reported by local owner.
+##
+## Data format must match `_cl_pack_authority_state`.
+func _sv_apply_authority_state(_state: Variant) -> void:
+	pass

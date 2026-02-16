@@ -3,6 +3,12 @@ extends GsomModCore
 const __Environment: PackedScene = preload("./vfx/environment.tscn")
 const __Splash: PackedScene = preload("./ui/splash/splash.tscn")
 const __PathMenu: StringName = &"res://core/ui/menu/menu.tscn"
+const __ActionMoveLeft: StringName = &"move_left"
+const __ActionMoveRight: StringName = &"move_right"
+const __ActionMoveForward: StringName = &"move_forward"
+const __ActionMoveBackward: StringName = &"move_backward"
+const __ActionJump: StringName = &"move_jump"
+const __ActionToggleMouse: StringName = &"move_toggle_mouse"
 
 var __menu: UiMenu = null
 var __svc_network: GsomNetworkImpl = null
@@ -45,6 +51,8 @@ func _mod_init() -> void:
 	GsomModapi.register(ctl_player)
 
 func _core_main() -> void:
+	__ensure_runtime_input_actions()
+
 	__svc_network = GsomNetworkImpl.new()
 	__svc_network.gamemode_started.connect(__hide_menu)
 	__svc_network.gamemode_ended.connect(__load_and_show_menu)
@@ -115,3 +123,22 @@ func __hide_menu() -> void:
 
 func __launch_new_game(content_id: StringName) -> void:
 	__svc_network.gamemode_start(content_id)
+
+func __ensure_runtime_input_actions() -> void:
+	__ensure_input_action_keys(__ActionMoveLeft, [KEY_A, KEY_LEFT])
+	__ensure_input_action_keys(__ActionMoveRight, [KEY_D, KEY_RIGHT])
+	__ensure_input_action_keys(__ActionMoveForward, [KEY_W, KEY_UP])
+	__ensure_input_action_keys(__ActionMoveBackward, [KEY_S, KEY_DOWN])
+	__ensure_input_action_keys(__ActionJump, [KEY_SPACE])
+	__ensure_input_action_keys(__ActionToggleMouse, [KEY_ESCAPE])
+
+func __ensure_input_action_keys(action: StringName, keys: Array[Key]) -> void:
+	if !InputMap.has_action(action):
+		InputMap.add_action(action)
+	var existing_events: Array[InputEvent] = InputMap.action_get_events(action)
+	if !existing_events.is_empty():
+		return
+	for keycode: Key in keys:
+		var key_event: InputEventKey = InputEventKey.new()
+		key_event.physical_keycode = keycode
+		InputMap.action_add_event(action, key_event)

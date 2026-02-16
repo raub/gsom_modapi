@@ -20,6 +20,9 @@ func net_set_load_epoch(epoch_id: int) -> void:
 func net_set_load_progress(progress: float) -> void:
 	__progress = progress
 
+func net_set_connected(connected: bool) -> void:
+	__connected = connected
+
 func _get_id() -> int:
 	return id
 

@@ -5,6 +5,7 @@ const __EventInput: StringName = &"input"
 var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
 
 var __sv_actions: Dictionary = {}
+var __sv_reserved: bool = false
 
 func _local_tick(dt: float) -> Variant:
 	if !check_is_local():
@@ -13,6 +14,9 @@ func _local_tick(dt: float) -> Variant:
 	if !ctl:
 		return null
 	var actions: Dictionary = ctl.controller_local_tick(dt)
+	var pawn_state: Variant = __cl_pack_owned_pawn_state()
+	if pawn_state != null:
+		actions["pawn_state"] = pawn_state
 	if actions.is_empty():
 		return null
 	actions["dt"] = dt
@@ -41,17 +45,22 @@ func _sv_peer_update(_peer: IGsomPeer) -> void:
 		return
 	if _peer._get_identity() != peer_identity:
 		return
-	if !_peer._get_connected():
-		_sv_dismiss_pawn()
-		return
+	__sync_target_pawn()
 
 func _sv_tick(_dt: float) -> void:
 	if !net.check_is_host():
 		return
 	__sv_sync_pawn_link()
-	if !__sv_actions.is_empty():
-		_apply_actions(__sv_actions)
+	if __sv_reserved:
 		__sv_actions = {}
+		return
+	if !__sv_actions.is_empty():
+		var actions: Dictionary = __sv_actions
+		__sv_actions = {}
+		_apply_actions(actions)
+		var pawn: IGsomPawn = _get_pawn()
+		if pawn:
+			pawn._sv_apply_authority_state(actions.get("pawn_state", null))
 
 func _cl_tick(_dt: float) -> void:
 	__sync_target_pawn()
@@ -62,6 +71,7 @@ func _cl_ready() -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		ctl.controller_set_local(check_is_local())
+		ctl.controller_set_enabled(!__sv_reserved)
 	__sync_target_pawn()
 
 func _sv_ready() -> void:
@@ -73,15 +83,22 @@ func _cl_unpack(snapshot: Variant) -> void:
 	if typeof(snapshot) != TYPE_DICTIONARY:
 		return
 	var data: Dictionary = snapshot
-	if data.has("peer_identity"):
-		peer_identity = data["peer_identity"]
-	pawn_id = data.get("pawn_id", pawn_id)
+	var identity_v: Variant = data.get("peer_identity", null)
+	if typeof(identity_v) == TYPE_STRING or typeof(identity_v) == TYPE_STRING_NAME:
+		peer_identity = identity_v
+	var pawn_id_v: Variant = data.get("pawn_id", pawn_id)
+	if typeof(pawn_id_v) == TYPE_INT:
+		pawn_id = pawn_id_v
+	var reserved_v: Variant = data.get("reserved", __sv_reserved)
+	if typeof(reserved_v) == TYPE_BOOL:
+		__sv_reserved = reserved_v
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		var view: Dictionary = {}
 		if typeof(data.get("view", null)) == TYPE_DICTIONARY:
 			view = data["view"]
 		ctl.controller_unpack_snapshot(view, !check_is_local())
+		ctl.controller_set_enabled(!__sv_reserved)
 	__sync_target_pawn()
 
 func _sv_pack(_lod: RelevancyLod) -> Variant:
@@ -90,6 +107,7 @@ func _sv_pack(_lod: RelevancyLod) -> Variant:
 	return {
 		"peer_identity": String(peer_identity),
 		"pawn_id": pawn_id,
+		"reserved": __sv_reserved,
 		"view": view,
 	}
 
@@ -100,10 +118,23 @@ func _sv_read_event(_peer: IGsomPeer, _e: Event) -> void:
 		return
 	if typeof(_e.data) != TYPE_DICTIONARY:
 		return
-	__sv_actions = _e.data
+	__sv_actions = __sanitize_actions(_e.data)
 
 func _cl_read_event(_e: Event) -> void:
 	pass
+
+func _sv_set_reserved(reserved: bool) -> void:
+	if !net.check_is_host():
+		return
+	__sv_reserved = reserved
+	if reserved:
+		__sv_actions = {}
+	var ctl: CtlPlayer = target as CtlPlayer
+	if ctl:
+		ctl.controller_set_enabled(!reserved)
+	var pawn: IGsomPawn = _get_pawn()
+	if pawn:
+		pawn._sv_set_reserved(reserved)
 
 func __sync_target_pawn() -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
@@ -125,14 +156,22 @@ func _sv_possess_pawn(pawn: IGsomPawn) -> void:
 		return
 	if !pawn:
 		return
+	if pawn.player_id != IGsomNetwork.NET_ID_EMPTY and pawn.player_id != net_id:
+		var other_owner: IGsomPlayer = net._get_entity(pawn.player_id) as IGsomPlayer
+		if other_owner:
+			other_owner._sv_dismiss_pawn()
+		else:
+			pawn.player_id = IGsomNetwork.NET_ID_EMPTY
 	if pawn_id == pawn.net_id:
 		if pawn.player_id != net_id:
 			pawn.player_id = net_id
+		pawn._sv_set_reserved(__sv_reserved)
 		__sync_target_pawn()
 		return
 	_sv_dismiss_pawn()
 	pawn_id = pawn.net_id
 	pawn.player_id = net_id
+	pawn._sv_set_reserved(__sv_reserved)
 	pawn._sv_posessed()
 	__sync_target_pawn()
 
@@ -142,6 +181,7 @@ func _sv_dismiss_pawn() -> void:
 	var pawn: IGsomPawn = _get_pawn()
 	if pawn:
 		pawn._sv_dismissed()
+		pawn._sv_set_reserved(false)
 		pawn.player_id = IGsomNetwork.NET_ID_EMPTY
 	pawn_id = IGsomNetwork.NET_ID_EMPTY
 	__sync_target_pawn()
@@ -153,3 +193,30 @@ func __sv_sync_pawn_link() -> void:
 		return
 	if pawn.player_id != net_id:
 		pawn.player_id = net_id
+
+func __sanitize_actions(raw: Dictionary) -> Dictionary:
+	var safe: Dictionary = {}
+	var move_v: Variant = raw.get("move", null)
+	if typeof(move_v) == TYPE_VECTOR2:
+		safe["move"] = (move_v as Vector2).limit_length(1.0)
+	var jump_v: Variant = raw.get("jump", null)
+	if typeof(jump_v) == TYPE_BOOL:
+		safe["jump"] = jump_v
+	var yaw_v: Variant = raw.get("yaw", null)
+	if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
+		safe["yaw"] = yaw_v
+	var pitch_v: Variant = raw.get("pitch", null)
+	if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
+		safe["pitch"] = pitch_v
+	var dt_v: Variant = raw.get("dt", null)
+	if typeof(dt_v) == TYPE_FLOAT or typeof(dt_v) == TYPE_INT:
+		safe["dt"] = maxf(0.0, dt_v)
+	if raw.has("pawn_state"):
+		safe["pawn_state"] = raw["pawn_state"]
+	return safe
+
+func __cl_pack_owned_pawn_state() -> Variant:
+	var pawn: IGsomPawn = _get_pawn()
+	if !pawn:
+		return null
+	return pawn._cl_pack_authority_state()

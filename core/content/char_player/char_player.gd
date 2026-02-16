@@ -3,26 +3,53 @@ class_name CharPlayer
 
 
 const SPEED: float = 5.0
+const DECELERATION: float = 20.0
 const JUMP_VELOCITY: float = 4.5
 
 var __move_input: Vector2 = Vector2.ZERO
 var __jump_queued: bool = false
 var __move_yaw: float = 0.0
+var __is_reserved: bool = false
+var __saved_collision_layer: int = 0
+var __saved_collision_mask: int = 0
+var __has_saved_collision: bool = false
 
 func pawn_reset_actions() -> void:
 	__move_input = Vector2.ZERO
 	__jump_queued = false
 
 func pawn_apply_actions(actions: Dictionary) -> void:
-	if actions.has("move") and typeof(actions["move"]) == TYPE_VECTOR2:
-		var wish_vec: Vector2 = actions["move"]
+	var move_v: Variant = actions.get("move", null)
+	if typeof(move_v) == TYPE_VECTOR2:
+		var wish_vec: Vector2 = move_v
 		__move_input = wish_vec.limit_length(1.0)
-	if actions.get("jump", false):
+	var jump_v: Variant = actions.get("jump", null)
+	if typeof(jump_v) == TYPE_BOOL and jump_v:
 		__jump_queued = true
-	if actions.has("yaw"):
-		__move_yaw = actions["yaw"]
+	var yaw_v: Variant = actions.get("yaw", null)
+	if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
+		__move_yaw = yaw_v
+
+func pawn_set_reserved(reserved: bool) -> void:
+	if __is_reserved == reserved:
+		return
+	__is_reserved = reserved
+	pawn_reset_actions()
+	if reserved:
+		velocity = Vector3.ZERO
+		if !__has_saved_collision:
+			__saved_collision_layer = collision_layer
+			__saved_collision_mask = collision_mask
+			__has_saved_collision = true
+		collision_layer = 0
+		collision_mask = 0
+	elif __has_saved_collision:
+		collision_layer = __saved_collision_layer
+		collision_mask = __saved_collision_mask
 
 func pawn_tick(delta: float) -> void:
+	if __is_reserved:
+		return
 	# Add the gravity.
 	if not is_on_floor():
 		velocity += get_gravity() * delta
@@ -38,11 +65,6 @@ func pawn_tick(delta: float) -> void:
 		velocity.x = direction.x * SPEED
 		velocity.z = direction.z * SPEED
 	else:
-		velocity.x = move_toward(velocity.x, 0, SPEED)
-		velocity.z = move_toward(velocity.z, 0, SPEED)
-	prints("velocity", velocity)
-	# move_and_slide()
-	var before: Vector3 = global_position
+		velocity.x = move_toward(velocity.x, 0.0, DECELERATION * delta)
+		velocity.z = move_toward(velocity.z, 0.0, DECELERATION * delta)
 	move_and_slide()
-	prints("delta_pos", global_position - before, "vel", velocity)
-	prints("last_motion", get_last_motion(), "slides", get_slide_collision_count())
