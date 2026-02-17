@@ -109,7 +109,8 @@ func controller_unpack_snapshot(snapshot: Dictionary, can_override_view: bool) -
 			__yaw = yaw_v
 		var pitch_v: Variant = snapshot.get("pitch", null)
 		if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
-			__pitch = clampf(pitch_v, __PitchMin, __PitchMax)
+			var pitch_f: float = pitch_v
+			__pitch = clampf(pitch_f, __PitchMin, __PitchMax)
 		__apply_view()
 	__sync_to_pawn()
 

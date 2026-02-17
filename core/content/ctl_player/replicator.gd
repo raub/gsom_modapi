@@ -13,7 +13,7 @@ func _local_tick(dt: float) -> Variant:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if !ctl:
 		return null
-	var actions: CtlPlayer.PlayerActions = ctl.controller_local_tick(dt) as CtlPlayer.PlayerActions
+	var actions: CtlPlayer.PlayerActions = ctl.controller_local_tick(dt)
 	if !actions:
 		return null
 	var pawn_state: Variant = __cl_pack_owned_pawn_state()
@@ -30,7 +30,7 @@ func _local_tick(dt: float) -> Variant:
 	return actions
 
 func _apply_actions(actions: Variant) -> void:
-	var typed: CtlPlayer.PlayerActions = actions as CtlPlayer.PlayerActions
+	var typed: CtlPlayer.PlayerActions = actions
 	if !typed:
 		return
 	var ctl: CtlPlayer = target as CtlPlayer
@@ -116,7 +116,7 @@ func _sv_read_event(_peer: IGsomPeer, _e: Event) -> void:
 		return
 	if _peer._get_identity() != peer_identity:
 		return
-	var typed: CtlPlayer.PlayerActions = _e.data as CtlPlayer.PlayerActions
+	var typed: CtlPlayer.PlayerActions = _e.data
 	if !typed:
 		return
 	__sv_actions = typed

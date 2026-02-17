@@ -657,7 +657,7 @@ func __load_into_epoch(epoch_id: int, path: StringName) -> void:
 		return
 	if __load_epoch_next.resources[path] == null:
 		__load_epoch_next.resources[path] = load(path)
-	prints("__load_into_epoch", epoch_id, path)
+	
 	var count_total: float = float(__load_epoch_next.resources.size())
 	if count_total <= 0.0:
 		if __gm:

@@ -11,7 +11,7 @@ func _sv_ready() -> void:
 	__apply_reserved_state()
 
 func _apply_actions(actions: Variant) -> void:
-	var typed: CtlPlayer.PlayerActions = actions as CtlPlayer.PlayerActions
+	var typed: CtlPlayer.PlayerActions = actions
 	if !typed:
 		return
 	var pawn: CharPlayer = target as CharPlayer
