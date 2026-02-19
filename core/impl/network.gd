@@ -331,10 +331,10 @@ func _physics_process(dt: float) -> void:
 	__sv_handle_actions()
 	__sv_tick(dt)
 	
-	__local_tick(dt)
-	
 	__cl_handle_events()
 	__cl_tick(dt)
+	
+	__local_tick(dt)
 	
 	__flush_events()
 

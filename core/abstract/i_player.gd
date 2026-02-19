@@ -29,7 +29,7 @@ func check_is_local() -> bool:
 func check_is_host() -> bool:
 	return peer_identity == net.get_host_identity()
 
-## [required] Only called on local player (after `sv_tick`, before `cl_tick`).
+## [required] Only called on local player (after both `sv_tick` and `cl_tick`).
 ##
 ## This is where the peer input actions are collected.
 ## The format is controller-specific - this is what you will get in `_apply_actions`.

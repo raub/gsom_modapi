@@ -19,12 +19,6 @@ func _local_tick(dt: float) -> Variant:
 		actions.pawn_state = pawn_state
 	actions.dt = dt
 	_apply_actions(actions) # local prediction (also host-immediate response)
-	if net.check_is_host():
-		return actions
-	var e: Event = Event.new()
-	e.kind = __EventInput
-	e.data = actions
-	net._cl_send_event(net_id, e)
 	return actions
 
 func _apply_actions(actions: Variant) -> void:
