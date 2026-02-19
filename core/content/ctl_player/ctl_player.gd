@@ -13,16 +13,16 @@ class PlayerActions extends RefCounted:
 	var dt: float = 0.0
 	var pawn_state: Variant = null
 
-const __MouseSensitivity: float = 0.0025
-const __PitchMin: float = deg_to_rad(-85.0)
-const __PitchMax: float = deg_to_rad(85.0)
-const __EyeHeight: float = 1.6
-const __ActionMoveLeft: StringName = &"move_left"
-const __ActionMoveRight: StringName = &"move_right"
-const __ActionMoveForward: StringName = &"move_forward"
-const __ActionMoveBackward: StringName = &"move_backward"
-const __ActionJump: StringName = &"move_jump"
-const __ActionToggleMouse: StringName = &"move_toggle_mouse"
+const __MOUSE_SENSITIVITY: float = 0.0025
+const __PITCH_MIN: float = deg_to_rad(-85.0)
+const __PITCH_MAX: float = deg_to_rad(85.0)
+const __EYE_HEIGHT: float = 1.6
+const __ACTION_MOVELEFT: StringName = &"move_left"
+const __ACTION_MOVERIGHT: StringName = &"move_right"
+const __ACTION_MOVEFORWARD: StringName = &"move_forward"
+const __ACTION_MOVEBACKWARD: StringName = &"move_backward"
+const __ACTION_JUMP: StringName = &"move_jump"
+const __ACTION_TOGGLEMOUSE: StringName = &"move_toggle_mouse"
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -65,22 +65,22 @@ func controller_set_pawn(pawn: Node3D) -> void:
 func controller_local_tick(_delta: float) -> Variant:
 	if !__check_local_active():
 		return null
-	if Input.is_action_just_pressed(__ActionToggleMouse) or Input.is_action_just_pressed("ui_cancel"):
+	if Input.is_action_just_pressed(__ACTION_TOGGLEMOUSE) or Input.is_action_just_pressed("ui_cancel"):
 		__toggle_mouse_mode()
 	__consume_look()
 	__sync_to_pawn()
 	var move: Vector2 = Input.get_vector(
-		__ActionMoveLeft,
-		__ActionMoveRight,
-		__ActionMoveForward,
-		__ActionMoveBackward,
+		__ACTION_MOVELEFT,
+		__ACTION_MOVERIGHT,
+		__ACTION_MOVEFORWARD,
+		__ACTION_MOVEBACKWARD,
 	)
 	if move == Vector2.ZERO:
 		move = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var actions: PlayerActions = PlayerActions.new()
 	actions.move = move
 	actions.jump = (
-		Input.is_action_just_pressed(__ActionJump)
+		Input.is_action_just_pressed(__ACTION_JUMP)
 		or Input.is_action_just_pressed("ui_accept")
 	)
 	actions.yaw = __yaw
@@ -92,7 +92,7 @@ func controller_apply_actions(actions: Variant) -> void:
 	if !typed:
 		return
 	__yaw = typed.yaw
-	__pitch = clampf(typed.pitch, __PitchMin, __PitchMax)
+	__pitch = clampf(typed.pitch, __PITCH_MIN, __PITCH_MAX)
 	__apply_view()
 	__sync_to_pawn()
 
@@ -110,7 +110,7 @@ func controller_unpack_snapshot(snapshot: Dictionary, can_override_view: bool) -
 		var pitch_v: Variant = snapshot.get("pitch", null)
 		if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
 			var pitch_f: float = pitch_v
-			__pitch = clampf(pitch_f, __PitchMin, __PitchMax)
+			__pitch = clampf(pitch_f, __PITCH_MIN, __PITCH_MAX)
 		__apply_view()
 	__sync_to_pawn()
 
@@ -126,9 +126,9 @@ func _cl_tick(_delta: float) -> void:
 func __consume_look() -> void:
 	if __look_accum == Vector2.ZERO:
 		return
-	__yaw -= __look_accum.x * __MouseSensitivity
-	__pitch -= __look_accum.y * __MouseSensitivity
-	__pitch = clampf(__pitch, __PitchMin, __PitchMax)
+	__yaw -= __look_accum.x * __MOUSE_SENSITIVITY
+	__pitch -= __look_accum.y * __MOUSE_SENSITIVITY
+	__pitch = clampf(__pitch, __PITCH_MIN, __PITCH_MAX)
 	__look_accum = Vector2.ZERO
 	__apply_view()
 
@@ -139,7 +139,7 @@ func __apply_view() -> void:
 func __sync_to_pawn() -> void:
 	if !__pawn:
 		return
-	global_position = __pawn.global_position + Vector3.UP * __EyeHeight
+	global_position = __pawn.global_position + Vector3.UP * __EYE_HEIGHT
 
 func __toggle_mouse_mode() -> void:
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

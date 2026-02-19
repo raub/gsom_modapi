@@ -35,8 +35,8 @@ func _init() -> void:
 	__peers[host_identity] = local_peer
 
 var nextId: int = 0
-var __events_in: Array[Event] = []
-var __events_out: Array[Event] = []
+var __events_in: Array[NetEvent] = []
+var __events_out: Array[NetEvent] = []
 
 var __gm: IGsomGameMode = null
 
@@ -44,34 +44,23 @@ func _ready() -> void:
 	__svc_spawn = SvcSpawn.new()
 	GsomModapi.scene.add_child(__svc_spawn)
 
-func _cl_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
-	var e: Event = Event.new()
+func _cl_send_event(net_id: int, event: IGsomEntity.Event) -> void:
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.ENTITY
-	e.data = {
-		"net_id": _net_id,
-		"to_server": true,
-		"peer_identity": get_local_identity(),
-		"event": _e,
-	}
-	__events_out.append(e)
+	var ev_data: EventDataEntity = EventDataEntity.new()
+	ev_data.dest_net_id = net_id
+	ev_data.payload = event
+	__send_net_event(e)
 
-func _sv_send_event(_net_id: int, _e: IGsomEntity.Event) -> void:
+func _sv_send_event(net_id: int, event: IGsomEntity.Event) -> void:
 	if !check_is_host():
 		return
-	var e: Event = Event.new()
-	e.kind = EventKind.ENTITY
-	e.data = {
-		"net_id": _net_id,
-		"to_server": false,
-		"peer_identity": get_local_identity(),
-		"event": _e,
-	}
-	__events_out.append(e)
+	_cl_send_event(net_id, event)
 
-func _get_entity(_net_id: int) -> IGsomEntity:
+func _get_entity(net_id: int) -> IGsomEntity:
 	if !__svc_spawn:
 		return null
-	return __svc_spawn.entities_by_id.get(_net_id, null)
+	return __svc_spawn.entities_by_id.get(net_id, null)
 
 func _get_entities_by_layer(_layer: SpawnLayer) -> Array[IGsomEntity]:
 	var entities: Array[IGsomEntity] = []
@@ -106,7 +95,8 @@ enum EventKind {
 	CL_PROGRESS,
 }
 
-class Event:
+class NetEvent:
+	var identity: StringName = &"" # set this automatically on transport
 	var kind: EventKind = EventKind.SV_SNAPSHOT
 	var data: Variant = null
 
@@ -116,6 +106,14 @@ class EventDataSpawn:
 	var content_id: StringName = &""
 	var layer: IGsomNetwork.SpawnLayer = IGsomNetwork.SpawnLayer.WORLD
 	var init_data: Variant = null
+
+class EventDataEntity:
+	var dest_net_id: int = IGsomNetwork.NET_ID_EMPTY
+	var payload: IGsomEntity.Event = null
+
+class EventDataSnapshot:
+	var dest_net_id: int = IGsomNetwork.NET_ID_EMPTY
+	var payload: Variant = null
 
 class EventDataLoad:
 	var epoch_id: int = 0
@@ -130,6 +128,10 @@ class EventDataPrefetch:
 	var epoch_id: int = 0
 	var resources: Array[StringName] = []
 
+func __send_net_event(e: NetEvent) -> void:
+	e.identity = get_local_identity()
+	__events_out.append(e)
+
 func _sv_spawn(
 	content_id: StringName,
 	layer: IGsomNetwork.SpawnLayer = IGsomNetwork.SpawnLayer.WORLD,
@@ -140,7 +142,7 @@ func _sv_spawn(
 		return null
 	nextId += 1
 	var net_id: int = nextId;
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.SV_SPAWN
 	var ev_data: EventDataSpawn = EventDataSpawn.new()
 	ev_data.net_id = net_id
@@ -152,48 +154,58 @@ func _sv_spawn(
 	var ent: IGsomEntity = __shared_spawn(ev_data)
 	if !ent:
 		return null
-	__events_out.append(e)
+	__send_net_event(e)
 	return ent
 
 func _sv_despawn(net_id: int) -> void:
 	if !check_is_host():
 		return
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.SV_DESPAWN
 	e.data = net_id
 	__shared_despawn(net_id)
-	__events_out.append(e)
+	__send_net_event(e)
 
 func __poll_events() -> void:
 	# add __events from network
 	pass
 
-# Server only accepts events from peer
 func __sv_handle_events() -> void:
 	if !check_is_host():
 		return
-	for e: Event in __events_in:
+	for e: NetEvent in __events_in:
 		if e.kind == EventKind.ENTITY:
-			var data: Dictionary = e.data
-			if !data.get("to_server", false):
-				continue
-			var net_id: int = data.get("net_id", NET_ID_EMPTY)
-			var ent: IGsomEntity = _get_entity(net_id)
+			var data: EventDataEntity = e.data
+			var ent: IGsomEntity = _get_entity(data.dest_net_id)
 			if !ent:
 				continue
-			var peer_identity: StringName = data.get("peer_identity", &"")
-			var peer: IGsomPeer = _get_peer(peer_identity)
+			var peer: IGsomPeer = _get_peer(e.identity)
 			if !peer:
 				continue
-			var payload: IGsomEntity.Event = data.get("event", null)
+			var payload: IGsomEntity.Event = data.payload
 			if !payload:
 				continue
 			ent._sv_read_event(peer, payload)
-		if e.kind == EventKind.CL_ACTION:
-			pass
 		if e.kind == EventKind.CL_PROGRESS:
 			var ev_data: EventDataProgress = e.data
-			__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
+			__shared_progress(_get_peer(e.identity) as GsomPeerImpl, ev_data)
+
+func __sv_handle_actions() -> void:
+	if !check_is_host():
+		return
+	for e: NetEvent in __events_in:
+		# Server only accepts actions from other peers
+		if !e.identity == get_local_identity():
+			continue
+		
+		if e.kind == EventKind.CL_ACTION:
+			var player: IGsomPlayer = _get_player(e.identity)
+			if !player:
+				continue
+			var pawn: IGsomPawn = player._get_pawn()
+			if !pawn:
+				continue
+			pawn._apply_actions(e.data)
 
 func __shared_spawn(ev_data: EventDataSpawn) -> IGsomEntity:
 	#var gm_id: int = __gm.net_id if __gm else IGsomNetwork.NET_ID_EMPTY
@@ -219,7 +231,7 @@ func __shared_despawn(net_id: int) -> void:
 		__svc_spawn.despawn(net_id)
 
 func __cl_handle_events() -> void:
-	for e: Event in __events_in:
+	for e: NetEvent in __events_in:
 		if e.kind == EventKind.SV_SPAWN:
 			if check_is_host():
 				continue # already spawned
@@ -243,16 +255,12 @@ func __cl_handle_events() -> void:
 		if e.kind == EventKind.SV_SNAPSHOT:
 			if check_is_host():
 				continue
-			var snapshots: Array = e.data
-			for item_v: Variant in snapshots:
-				if typeof(item_v) != TYPE_DICTIONARY:
-					continue
-				var item: Dictionary = item_v
-				var net_id: int = item.get("net_id", NET_ID_EMPTY)
-				var ent: IGsomEntity = _get_entity(net_id)
+			var snapshots: Array[EventDataSnapshot] = e.data
+			for item: EventDataSnapshot in snapshots:
+				var ent: IGsomEntity = _get_entity(item.dest_net_id)
 				if !ent:
 					continue
-				ent._cl_unpack(item.get("snapshot", null))
+				ent._cl_unpack(item.payload)
 		if e.kind == EventKind.ENTITY:
 			var data: Dictionary = e.data
 			if data.get("to_server", true):
@@ -276,7 +284,16 @@ func __local_tick(dt: float) -> void:
 			continue
 		var as_player: IGsomPlayer = entity
 		if as_player.check_is_local():
-			var _actions: Variant = as_player._local_tick(dt)
+			var actions: Variant = as_player._local_tick(dt)
+			var e: NetEvent = NetEvent.new()
+			e.kind = EventKind.CL_ACTION
+			e.data = actions
+			__send_net_event(e)
+			
+			var pawn: IGsomPawn = as_player._get_pawn()
+			if pawn:
+				pawn._apply_actions(e.data)
+			
 			break
 
 func __sv_tick(dt: float) -> void:
@@ -284,21 +301,20 @@ func __sv_tick(dt: float) -> void:
 		return
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
 		entity._sv_tick(dt)
-	var snapshots: Array[Dictionary] = []
+	var snapshots: Array[EventDataSnapshot] = []
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
 		var snapshot: Variant = entity._sv_pack(IGsomEntity.RelevancyLod.MAX)
 		if snapshot == null:
 			continue
-		snapshots.append({
-			"net_id": entity.net_id,
-			"snapshot": snapshot,
-		})
+		var ev_data: EventDataSnapshot = EventDataSnapshot.new()
+		ev_data.dest_net_id = entity.net_id
+		ev_data.payload = snapshot
 	if snapshots.is_empty():
 		return
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.SV_SNAPSHOT
 	e.data = snapshots
-	__events_out.append(e)
+	__send_net_event(e)
 
 func __cl_tick(dt: float) -> void:
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
@@ -309,12 +325,13 @@ func __flush_events() -> void:
 	__events_out = []
 
 func _physics_process(dt: float) -> void:
-	__local_tick(dt)
-	
 	__poll_events()
 	
 	__sv_handle_events()
+	__sv_handle_actions()
 	__sv_tick(dt)
+	
+	__local_tick(dt)
 	
 	__cl_handle_events()
 	__cl_tick(dt)
@@ -601,7 +618,7 @@ func _sv_load_start(label: String, resources: Array[StringName]) -> void:
 	if __gm:
 		__gm._sv_load_start(label)
 	
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.SV_LOAD
 	var ev_data: EventDataLoad = EventDataLoad.new()
 	ev_data.epoch_id = __load_epoch.epoch_id + 1
@@ -609,7 +626,7 @@ func _sv_load_start(label: String, resources: Array[StringName]) -> void:
 	ev_data.resources = resources.duplicate()
 	e.data = ev_data
 	__shared_load(ev_data)
-	__events_out.append(e)
+	__send_net_event(e)
 
 func __shared_load(ev_data: EventDataLoad) -> void:
 	__load_epoch_next = LoadEpoch.new()
@@ -678,14 +695,14 @@ func __load_into_epoch(epoch_id: int, path: StringName) -> void:
 			_cl_load_complete()
 		return
 	
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.CL_PROGRESS
 	var ev_data: EventDataProgress = EventDataProgress.new()
 	ev_data.epoch_id = epoch_id
 	ev_data.progress = minf(progress, 0.99)
 	e.data = ev_data
 	__shared_progress(get_local_peer() as GsomPeerImpl, ev_data)
-	__events_out.append(e)
+	__send_net_event(e)
 
 func __load_into_prefetch(path: StringName) -> void:
 	var res: Resource = load(path)
@@ -706,14 +723,14 @@ func _sv_load_prefetch(resources: Array[StringName]) -> void:
 	if !check_is_host():
 		return
 	
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.SV_PREFETCH
 	var ev_data: EventDataPrefetch = EventDataPrefetch.new()
 	ev_data.epoch_id = __load_epoch.epoch_id + 1
 	ev_data.resources = resources.duplicate()
 	e.data = ev_data
 	__shared_prefetch(ev_data)
-	__events_out.append(e)
+	__send_net_event(e)
 
 func _cl_load_complete() -> void:
 	var epoch_id: int = __load_epoch_next.epoch_id if __load_epoch_next else __load_epoch.epoch_id
@@ -722,14 +739,14 @@ func _cl_load_complete() -> void:
 	var local: GsomPeerImpl = get_local_peer() as GsomPeerImpl
 	if local._get_load_epoch() == epoch_id and local._get_load_progress() >= 1.0:
 		return
-	var e: Event = Event.new()
+	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.CL_PROGRESS
 	var ev_data: EventDataProgress = EventDataProgress.new()
 	ev_data.epoch_id = epoch_id
 	ev_data.progress = 1
 	e.data = ev_data
 	__shared_progress(local, ev_data)
-	__events_out.append(e)
+	__send_net_event(e)
 	__commit_load_epoch(epoch_id)
 
 #endregion

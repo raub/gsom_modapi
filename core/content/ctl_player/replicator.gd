@@ -8,8 +8,6 @@ var __sv_actions: CtlPlayer.PlayerActions = null
 var __sv_reserved: bool = false
 
 func _local_tick(dt: float) -> Variant:
-	if !check_is_local():
-		return null
 	var ctl: CtlPlayer = target as CtlPlayer
 	if !ctl:
 		return null
