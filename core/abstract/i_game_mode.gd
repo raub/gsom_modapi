@@ -37,7 +37,7 @@ func _sv_can_manual_save() -> bool:
 ##
 ## Note: this is only part of the saved data, here you mostly decide if it is worth saving.
 ## All network entities will be enumerated and written automatically.
-## Only store the information that is not provided by `_sv_pack(RelevancyLod.MAX)`.
+## Only store the information that is not provided by `_write_snapshot(RelevancyLod.MAX)`.
 ## Such as, encode the game mode compatibility version to validate during load.
 func _sv_pack_game() -> Variant:
 	return null

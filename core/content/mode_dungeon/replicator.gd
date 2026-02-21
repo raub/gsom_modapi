@@ -141,9 +141,9 @@ func __sv_apply_session_state(session: Session) -> void:
 	var player: IGsomPlayer = __sv_get_session_player(session)
 	var pawn: IGsomPawn = __sv_get_session_pawn(session)
 	if player:
-		player._sv_set_reserved(session.reserved)
+		__sv_call_optional_reserved(player, session.reserved)
 	if pawn:
-		pawn._sv_set_reserved(session.reserved)
+		__sv_call_optional_reserved(pawn, session.reserved)
 	if !session.reserved and player and pawn:
 		__sv_possess_player(player, pawn)
 
@@ -238,3 +238,7 @@ func __uniq_resources(resources: Array[StringName]) -> Array[StringName]:
 		seen[path] = true
 		uniq.append(path)
 	return uniq
+
+func __sv_call_optional_reserved(entity: IGsomEntity, reserved: bool) -> void:
+	if entity and entity.has_method("_sv_set_reserved"):
+		entity.call("_sv_set_reserved", reserved)

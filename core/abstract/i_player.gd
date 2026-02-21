@@ -32,7 +32,8 @@ func check_is_host() -> bool:
 ## [required] Only called on local player (after both `sv_tick` and `cl_tick`).
 ##
 ## This is where the peer input actions are collected.
-## The format is controller-specific - this is what you will get in `_apply_actions`.
+## The format is controller-specific - this is what you will get in `_sv_apply_actions`.
+## Typical setup is lightweight controller state + owned pawn snapshot.
 ##
 ## This is different from "reliable events":
 ## - Unreliable channel is utilized.
@@ -40,7 +41,7 @@ func check_is_host() -> bool:
 ## - You can't produce actions for other player controllers (possible with events).
 ##
 ## IMPORTANT:
-## - Always pair with `pawn._apply_actions` format: `actions` are delivered verbatim.
+## - Always pair with your `_sv_apply_actions` format: `actions` are delivered verbatim.
 ## - Channel is unreliable. Packets may be lost or ignored due to out-of-order.
 ## - Packet ordering is implemented by the Core, no need to encode and check it.
 func _local_tick(_dt: float) -> Variant:
@@ -52,6 +53,12 @@ func _local_tick(_dt: float) -> Variant:
 ## This is called when fields are modified in the player-related peer.
 ## When the peer disconnects/reconnects, it counts as an "update" too.
 func _sv_peer_update(_peer: IGsomPeer) -> void:
+	pass
+
+## [server optional] Apply an incoming action feed from this player's peer.
+##
+## Core calls this from `CL_ACTION` handling, skipping host-local actions.
+func _sv_apply_actions(_actions: Variant) -> void:
 	pass
 
 ## [optional] Get currently controlled pawn (if this player type uses one).
@@ -68,10 +75,4 @@ func _sv_possess_pawn(_pawn: IGsomPawn) -> void:
 
 ## [server optional] Stop possessing current pawn.
 func _sv_dismiss_pawn() -> void:
-	pass
-
-## [server optional] Mark this player session as reserved (disconnected ghost).
-##
-## Reserved players keep identity and references, but should not accept local controls.
-func _sv_set_reserved(_reserved: bool) -> void:
 	pass

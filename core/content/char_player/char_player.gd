@@ -18,11 +18,11 @@ func pawn_reset_actions() -> void:
 	__move_input = Vector2.ZERO
 	__jump_queued = false
 
-func pawn_apply_actions(actions: CtlPlayer.PlayerActions) -> void:
-	__move_input = actions.move.limit_length(1.0)
-	if actions.jump:
+func pawn_apply_actions(input: CtlPlayer.PlayerInput) -> void:
+	__move_input = input.move.limit_length(1.0)
+	if input.jump:
 		__jump_queued = true
-	__move_yaw = actions.yaw
+	__move_yaw = input.yaw
 
 func pawn_set_reserved(reserved: bool) -> void:
 	if __is_reserved == reserved:

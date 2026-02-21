@@ -5,9 +5,12 @@ class_name CtlPlayer
 ## In terms of Position - it follows the currently controlled pawn.
 ## For Rotation, it separately rotates "body" for YAW and "head" for PITCH.
 
-class PlayerActions extends RefCounted:
+class PlayerInput extends RefCounted:
 	var move: Vector2 = Vector2.ZERO
 	var jump: bool = false
+	var yaw: float = 0.0
+
+class PlayerActions extends RefCounted:
 	var yaw: float = 0.0
 	var pitch: float = 0.0
 	var dt: float = 0.0
@@ -77,12 +80,18 @@ func controller_local_tick(_delta: float) -> Variant:
 	)
 	if move == Vector2.ZERO:
 		move = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	var actions: PlayerActions = PlayerActions.new()
-	actions.move = move
-	actions.jump = (
+	var input: PlayerInput = PlayerInput.new()
+	input.move = move
+	input.jump = (
 		Input.is_action_just_pressed(__ACTION_JUMP)
 		or Input.is_action_just_pressed("ui_accept")
 	)
+	input.yaw = __yaw
+	return input
+
+func controller_compose_actions(delta: float) -> PlayerActions:
+	var actions: PlayerActions = PlayerActions.new()
+	actions.dt = delta
 	actions.yaw = __yaw
 	actions.pitch = __pitch
 	return actions

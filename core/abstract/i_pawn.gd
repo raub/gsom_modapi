@@ -19,18 +19,6 @@ class_name IGsomPawn
 ## This mirrors `player.pawn_id`.
 var player_id: int = IGsomNetwork.NET_ID_EMPTY
 
-## [required] Apply the actions from controller `_local_tick`.
-##
-## - Server delivers actions from each IGsomPlayer to their posessed pawn.
-## - Client self-applies their own actions for smooth prediction.
-##
-## IMPORTANT:
-## - Always pair with `_local_tick` implementation: `actions` are delivered verbatim.
-## - Channel is unreliable. Packets may be lost or ignored due to out-of-order.
-## - Packet ordering is implemented by the Core, no need to encode and check it.
-func _apply_actions(_actions: Variant) -> void:
-	assert(false, "Not implemented")
-
 ## [server optional] Do something when posessed by the player.
 ##
 ## By this moment, `player_id` has already been set.
@@ -42,21 +30,3 @@ func _sv_posessed() -> void:
 ## By this moment, `player_id` has already been set.
 func _sv_dismissed() -> void:
 	assert(false, "Not implemented")
-
-## [server optional] Mark this pawn as reserved (disconnected ghost).
-##
-## Reserved pawns keep identity and ownership references, but should suspend active control.
-func _sv_set_reserved(_reserved: bool) -> void:
-	pass
-
-## [optional] Local authority state for this pawn.
-##
-## Returned value is controller-specific and is forwarded verbatim to `_sv_apply_authority_state`.
-func _cl_pack_authority_state() -> Variant:
-	return null
-
-## [server optional] Apply authority state reported by local owner.
-##
-## Data format must match `_cl_pack_authority_state`.
-func _sv_apply_authority_state(_state: Variant) -> void:
-	pass

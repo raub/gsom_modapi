@@ -1,24 +1,22 @@
 extends IGsomPlayer
 
-const __EventInput: StringName = &"input"
-
 var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
 
-var __sv_actions: CtlPlayer.PlayerActions = null
 var __sv_reserved: bool = false
 
 func _local_tick(dt: float) -> Variant:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if !ctl:
 		return null
-	var actions: CtlPlayer.PlayerActions = ctl.controller_local_tick(dt)
-	if !actions:
+	var input: CtlPlayer.PlayerInput = ctl.controller_local_tick(dt)
+	if !input:
 		return null
-	var pawn_state: Variant = __cl_pack_owned_pawn_state()
+	__apply_input_to_owned_pawn(input)
+	var actions: CtlPlayer.PlayerActions = ctl.controller_compose_actions(dt)
+	var pawn_state: Variant = __pack_owned_pawn_snapshot()
 	if pawn_state != null:
 		actions.pawn_state = pawn_state
-	actions.dt = dt
-	_apply_actions(actions) # local prediction (also host-immediate response)
+	_apply_actions(actions)
 	return actions
 
 func _apply_actions(actions: Variant) -> void:
@@ -28,9 +26,6 @@ func _apply_actions(actions: Variant) -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		ctl.controller_apply_actions(typed)
-	var pawn: IGsomPawn = _get_pawn()
-	if pawn:
-		pawn._apply_actions(typed)
 
 func _sv_peer_update(_peer: IGsomPeer) -> void:
 	if !net.check_is_host():
@@ -43,16 +38,18 @@ func _sv_tick(_dt: float) -> void:
 	if !net.check_is_host():
 		return
 	__sv_sync_pawn_link()
-	if __sv_reserved:
-		__sv_actions = null
+
+func _sv_apply_actions(actions: Variant) -> void:
+	if !net.check_is_host():
 		return
-	if __sv_actions:
-		var actions: CtlPlayer.PlayerActions = __sv_actions
-		__sv_actions = null
-		_apply_actions(actions)
-		var pawn: IGsomPawn = _get_pawn()
-		if pawn:
-			pawn._sv_apply_authority_state(actions.pawn_state)
+	__sv_sync_pawn_link()
+	if __sv_reserved:
+		return
+	var typed: CtlPlayer.PlayerActions = actions
+	if !typed:
+		return
+	_apply_actions(typed)
+	__sv_apply_owned_pawn_snapshot(typed.pawn_state)
 
 func _cl_tick(_dt: float) -> void:
 	__sync_target_pawn()
@@ -71,7 +68,7 @@ func _sv_ready() -> void:
 		peer_identity = instigator
 	__sync_target_pawn()
 
-func _cl_unpack(snapshot: Variant) -> void:
+func _read_snapshot(snapshot: Variant) -> void:
 	if typeof(snapshot) != TYPE_DICTIONARY:
 		return
 	var data: Dictionary = snapshot
@@ -93,7 +90,7 @@ func _cl_unpack(snapshot: Variant) -> void:
 		ctl.controller_set_enabled(!__sv_reserved)
 	__sync_target_pawn()
 
-func _sv_pack(_lod: RelevancyLod) -> Variant:
+func _write_snapshot(_lod: RelevancyLod) -> Variant:
 	var ctl: CtlPlayer = target as CtlPlayer
 	var view: Dictionary = ctl.controller_pack_snapshot() if ctl else {}
 	return {
@@ -104,14 +101,7 @@ func _sv_pack(_lod: RelevancyLod) -> Variant:
 	}
 
 func _sv_read_event(_peer: IGsomPeer, _e: Event) -> void:
-	if _e.kind != __EventInput:
-		return
-	if _peer._get_identity() != peer_identity:
-		return
-	var typed: CtlPlayer.PlayerActions = _e.data
-	if !typed:
-		return
-	__sv_actions = typed
+	pass
 
 func _cl_read_event(_e: Event) -> void:
 	pass
@@ -120,14 +110,12 @@ func _sv_set_reserved(reserved: bool) -> void:
 	if !net.check_is_host():
 		return
 	__sv_reserved = reserved
-	if reserved:
-		__sv_actions = null
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		ctl.controller_set_enabled(!reserved)
 	var pawn: IGsomPawn = _get_pawn()
 	if pawn:
-		pawn._sv_set_reserved(reserved)
+		__call_optional_reserved(pawn, reserved)
 
 func __sync_target_pawn() -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
@@ -158,13 +146,13 @@ func _sv_possess_pawn(pawn: IGsomPawn) -> void:
 	if pawn_id == pawn.net_id:
 		if pawn.player_id != net_id:
 			pawn.player_id = net_id
-		pawn._sv_set_reserved(__sv_reserved)
+		__call_optional_reserved(pawn, __sv_reserved)
 		__sync_target_pawn()
 		return
 	_sv_dismiss_pawn()
 	pawn_id = pawn.net_id
 	pawn.player_id = net_id
-	pawn._sv_set_reserved(__sv_reserved)
+	__call_optional_reserved(pawn, __sv_reserved)
 	pawn._sv_posessed()
 	__sync_target_pawn()
 
@@ -174,7 +162,7 @@ func _sv_dismiss_pawn() -> void:
 	var pawn: IGsomPawn = _get_pawn()
 	if pawn:
 		pawn._sv_dismissed()
-		pawn._sv_set_reserved(false)
+		__call_optional_reserved(pawn, false)
 		pawn.player_id = IGsomNetwork.NET_ID_EMPTY
 	pawn_id = IGsomNetwork.NET_ID_EMPTY
 	__sync_target_pawn()
@@ -187,8 +175,24 @@ func __sv_sync_pawn_link() -> void:
 	if pawn.player_id != net_id:
 		pawn.player_id = net_id
 
-func __cl_pack_owned_pawn_state() -> Variant:
+func __pack_owned_pawn_snapshot() -> Variant:
 	var pawn: IGsomPawn = _get_pawn()
 	if !pawn:
 		return null
-	return pawn._cl_pack_authority_state()
+	return pawn._write_snapshot(IGsomEntity.RelevancyLod.MAX)
+
+func __apply_input_to_owned_pawn(input: CtlPlayer.PlayerInput) -> void:
+	var pawn: IGsomPawn = _get_pawn()
+	if !pawn or !pawn.target or !pawn.target.has_method("pawn_apply_actions"):
+		return
+	pawn.target.call("pawn_apply_actions", input)
+
+func __sv_apply_owned_pawn_snapshot(snapshot: Variant) -> void:
+	var pawn: IGsomPawn = _get_pawn()
+	if !pawn:
+		return
+	pawn._read_snapshot(snapshot)
+
+func __call_optional_reserved(entity: IGsomEntity, reserved: bool) -> void:
+	if entity and entity.has_method("_sv_set_reserved"):
+		entity.call("_sv_set_reserved", reserved)

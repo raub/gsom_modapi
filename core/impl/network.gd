@@ -194,18 +194,15 @@ func __sv_handle_actions() -> void:
 	if !check_is_host():
 		return
 	for e: NetEvent in __events_in:
-		# Server only accepts actions from other peers
-		if !e.identity == get_local_identity():
+		if e.kind != EventKind.CL_ACTION:
 			continue
-		
-		if e.kind == EventKind.CL_ACTION:
-			var player: IGsomPlayer = _get_player(e.identity)
-			if !player:
-				continue
-			var pawn: IGsomPawn = player._get_pawn()
-			if !pawn:
-				continue
-			pawn._apply_actions(e.data)
+		# Server only accepts actions from other peers
+		if e.identity == get_local_identity():
+			continue
+		var player: IGsomPlayer = _get_player(e.identity)
+		if !player:
+			continue
+		player._sv_apply_actions(e.data)
 
 func __shared_spawn(ev_data: EventDataSpawn) -> IGsomEntity:
 	#var gm_id: int = __gm.net_id if __gm else IGsomNetwork.NET_ID_EMPTY
@@ -260,7 +257,7 @@ func __cl_handle_events() -> void:
 				var ent: IGsomEntity = _get_entity(item.dest_net_id)
 				if !ent:
 					continue
-				ent._cl_unpack(item.payload)
+				ent._read_snapshot(item.payload)
 		if e.kind == EventKind.ENTITY:
 			var data: Dictionary = e.data
 			if data.get("to_server", true):
@@ -285,15 +282,12 @@ func __local_tick(dt: float) -> void:
 		var as_player: IGsomPlayer = entity
 		if as_player.check_is_local():
 			var actions: Variant = as_player._local_tick(dt)
+			if actions == null:
+				break
 			var e: NetEvent = NetEvent.new()
 			e.kind = EventKind.CL_ACTION
 			e.data = actions
 			__send_net_event(e)
-			
-			var pawn: IGsomPawn = as_player._get_pawn()
-			if pawn:
-				pawn._apply_actions(e.data)
-			
 			break
 
 func __sv_tick(dt: float) -> void:
@@ -303,12 +297,13 @@ func __sv_tick(dt: float) -> void:
 		entity._sv_tick(dt)
 	var snapshots: Array[EventDataSnapshot] = []
 	for entity: IGsomEntity in __svc_spawn.entities_by_id.values():
-		var snapshot: Variant = entity._sv_pack(IGsomEntity.RelevancyLod.MAX)
+		var snapshot: Variant = entity._write_snapshot(IGsomEntity.RelevancyLod.MAX)
 		if snapshot == null:
 			continue
 		var ev_data: EventDataSnapshot = EventDataSnapshot.new()
 		ev_data.dest_net_id = entity.net_id
 		ev_data.payload = snapshot
+		snapshots.append(ev_data)
 	if snapshots.is_empty():
 		return
 	var e: NetEvent = NetEvent.new()

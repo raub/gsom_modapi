@@ -140,17 +140,17 @@ func _cl_ready() -> void:
 func _sv_ready() -> void:
 	pass
 
-## [optional] Accept an update snapshot.
+## [optional] Read an update snapshot.
 ##
-## The data format will be whatever your `_sv_pack` has produced on the server.
-func _cl_unpack(_snapshot: Variant) -> void:
+## The data format will be whatever your `_write_snapshot` has produced on the server.
+func _read_snapshot(_snapshot: Variant) -> void:
 	pass
 
-## [server, optional] Create an update snapshot.
+## [server, optional] Write an update snapshot.
 ##
 ## Ideally, it should be efficiently packed, but a simple Dictionary will also work.
-## No format requirement, but make sure to implement reading it in `_cl_unpack`.
-func _sv_pack(_lod: RelevancyLod) -> Variant:
+## No format requirement, but make sure to implement reading it in `_read_snapshot`.
+func _write_snapshot(_lod: RelevancyLod) -> Variant:
 	return null
 
 ## [server, optional] Read a reliable event from a client.
