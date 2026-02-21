@@ -1,9 +1,5 @@
 extends IGsomGameMode
 
-const __TagDungeon: StringName = &"dungeon"
-const __TagPlayer: StringName = &"player"
-const __TagFps: StringName = &"fps"
-
 var __sv_wait_epoch: int = 0
 var __sv_pending_spawn: bool = false
 var __sv_started: bool = false
@@ -11,23 +7,11 @@ var __sv_started: bool = false
 var __sv_room_content_id: StringName = &""
 var __sv_controller_content_id: StringName = &""
 var __sv_pawn_content_id: StringName = &""
-var __sv_next_slot_index: int = 0
-
-class Session:
-	var peer_identity: StringName = &""
-	var slot_index: int = -1
-	var player_id: int = IGsomNetwork.NET_ID_EMPTY
-	var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
-	var reserved: bool = false
-
-var __sv_sessions: Dictionary = {}
 
 func _sv_ready() -> void:
-	__sv_room_content_id = __pick_content_id(&"room", [__TagDungeon])
-	__sv_controller_content_id = __pick_content_id(&"controller", [__TagPlayer, __TagFps])
-	__sv_pawn_content_id = __pick_content_id(&"actor", [__TagDungeon, __TagPlayer, &"character"])
-	__sv_sessions.clear()
-	__sv_next_slot_index = 0
+	__sv_room_content_id = __pick_content_id(&"room", [&"dungeon"])
+	__sv_controller_content_id = __pick_content_id(&"controller", [&"player", &"fps"])
+	__sv_pawn_content_id = __pick_content_id(&"actor", [&"dungeon", &"player", &"character"])
 	
 	__sv_wait_epoch = net.get_local_peer()._get_load_epoch() + 1
 	__sv_pending_spawn = true
@@ -47,34 +31,25 @@ func _sv_peer_join(peer: IGsomPeer) -> void:
 		return
 	if !__sv_started:
 		return
-	var session: Session = __sv_get_or_create_session(peer._get_identity())
-	__sv_ensure_session_entities(session)
-	session.reserved = !peer._get_connected()
-	__sv_apply_session_state(session)
+	if peer._get_connected():
+		__sv_ensure_peer_entities(peer._get_identity())
+	__sv_apply_peer_state(peer)
 
 func _sv_peer_drop(peer: IGsomPeer) -> void:
 	if !peer:
 		return
-	if !__sv_sessions.has(peer._get_identity()):
+	if !__sv_started:
 		return
-	var session: Session = __sv_sessions[peer._get_identity()]
-	session.reserved = true
-	__sv_apply_session_state(session)
+	__sv_apply_peer_state(peer)
 
 func _sv_peer_update(peer: IGsomPeer) -> void:
 	if !peer:
 		return
 	if !__sv_started:
 		return
-	var peer_identity: StringName = peer._get_identity()
-	if !__sv_sessions.has(peer_identity):
-		if peer._get_connected():
-			_sv_peer_join(peer)
-		return
-	var session: Session = __sv_sessions[peer_identity]
-	__sv_ensure_session_entities(session)
-	session.reserved = !peer._get_connected()
-	__sv_apply_session_state(session)
+	if peer._get_connected():
+		__sv_ensure_peer_entities(peer._get_identity())
+	__sv_apply_peer_state(peer)
 
 func _sv_tick(_dt: float) -> void:
 	if !__sv_pending_spawn or __sv_started:
@@ -113,58 +88,42 @@ func __sv_possess_player(player: IGsomPlayer, pawn: IGsomPawn) -> void:
 		return
 	player._sv_possess_pawn(pawn)
 
-func __sv_get_or_create_session(peer_identity: StringName) -> Session:
-	if __sv_sessions.has(peer_identity):
-		return __sv_sessions[peer_identity]
-	var session: Session = Session.new()
-	session.peer_identity = peer_identity
-	session.slot_index = __sv_next_slot_index
-	__sv_next_slot_index += 1
-	__sv_sessions[peer_identity] = session
-	return session
-
-func __sv_ensure_session_entities(session: Session) -> void:
-	var player: IGsomPlayer = __sv_get_session_player(session)
+func __sv_ensure_peer_entities(peer_identity: StringName) -> void:
+	var player: IGsomPlayer = net._get_player(peer_identity)
 	if !player:
-		player = __sv_spawn_controller(session.peer_identity)
-		if player:
-			session.player_id = player.net_id
-	var pawn: IGsomPawn = __sv_get_session_pawn(session)
+		player = __sv_spawn_controller(peer_identity)
+	var pawn: IGsomPawn = __sv_get_peer_pawn(peer_identity, player)
 	if !pawn:
-		pawn = __sv_spawn_pawn(session.peer_identity, session.slot_index)
-		if pawn:
-			session.pawn_id = pawn.net_id
+		var spawn_slot_index: int = net._get_players().size() - 1
+		if spawn_slot_index < 0:
+			spawn_slot_index = 0
+		pawn = __sv_spawn_pawn(peer_identity, spawn_slot_index)
 	if player and pawn:
 		__sv_possess_player(player, pawn)
 
-func __sv_apply_session_state(session: Session) -> void:
-	var player: IGsomPlayer = __sv_get_session_player(session)
-	var pawn: IGsomPawn = __sv_get_session_pawn(session)
+func __sv_apply_peer_state(peer: IGsomPeer) -> void:
+	var peer_identity: StringName = peer._get_identity()
+	var reserved: bool = !peer._get_connected()
+	var player: IGsomPlayer = net._get_player(peer_identity)
+	var pawn: IGsomPawn = __sv_get_peer_pawn(peer_identity, player)
 	if player:
-		__sv_call_optional_reserved(player, session.reserved)
+		__sv_call_optional_reserved(player, reserved)
 	if pawn:
-		__sv_call_optional_reserved(pawn, session.reserved)
-	if !session.reserved and player and pawn:
+		__sv_call_optional_reserved(pawn, reserved)
+	if !reserved and player and pawn:
 		__sv_possess_player(player, pawn)
 
-func __sv_get_session_player(session: Session) -> IGsomPlayer:
-	if session.player_id != IGsomNetwork.NET_ID_EMPTY:
-		var by_id: IGsomPlayer = net._get_entity(session.player_id) as IGsomPlayer
-		if by_id:
-			return by_id
-		session.player_id = IGsomNetwork.NET_ID_EMPTY
-	var by_peer: IGsomPlayer = net._get_player(session.peer_identity)
-	if by_peer:
-		session.player_id = by_peer.net_id
-	return by_peer
-
-func __sv_get_session_pawn(session: Session) -> IGsomPawn:
-	if session.pawn_id == IGsomNetwork.NET_ID_EMPTY:
-		return null
-	var pawn: IGsomPawn = net._get_entity(session.pawn_id) as IGsomPawn
-	if pawn:
-		return pawn
-	session.pawn_id = IGsomNetwork.NET_ID_EMPTY
+func __sv_get_peer_pawn(peer_identity: StringName, player: IGsomPlayer = null) -> IGsomPawn:
+	if player:
+		var owned: IGsomPawn = player._get_pawn()
+		if owned:
+			return owned
+	for entity: IGsomEntity in net._get_entities_by_layer(IGsomNetwork.SpawnLayer.ACTORS):
+		var pawn: IGsomPawn = entity as IGsomPawn
+		if !pawn:
+			continue
+		if pawn.instigator == peer_identity:
+			return pawn
 	return null
 
 func __sv_spawn_controller(peer_identity: StringName) -> IGsomPlayer:
