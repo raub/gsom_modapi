@@ -5,7 +5,6 @@ extends Node3D
 @export_range(8, 64, 1) var room_count: int = 22
 @export_range(2, 12, 1) var grid_radius: int = 5
 @export_range(22.0, 40.0, 0.5) var grid_step: float = 30.0
-@export_range(0.05, 0.5, 0.01) var extra_loop_chance: float = 0.22
 
 @export_range(12.0, 22.0, 0.5) var room_width_min: float = 13.0
 @export_range(12.0, 24.0, 0.5) var room_width_max: float = 18.0
@@ -99,38 +98,51 @@ func _prepare_materials() -> void:
 	_mat_light.roughness = 0.1
 
 func _build_layout_graph() -> void:
-	var origin: Vector2i = Vector2i.ZERO
-	_add_room(origin, true)
+	var grid_diameter: int = grid_radius * 2 + 1
+	var max_rooms_in_grid: int = grid_diameter * grid_diameter
+	var target_rooms: int = clampi(room_count, 1, max_rooms_in_grid)
+	var path: Array[Vector2i] = _build_linear_room_path(target_rooms)
+	if path.is_empty():
+		path = [Vector2i.ZERO]
 
-	var frontier: Array[Vector2i] = [origin]
-	while _rooms_by_key.size() < room_count and !frontier.is_empty():
-		var frontier_index: int = _rng.randi_range(0, frontier.size() - 1)
-		var base: Vector2i = frontier[frontier_index]
-		var candidates: Array[Vector2i] = _available_neighbors(base)
-		if candidates.is_empty():
-			frontier.remove_at(frontier_index)
-			continue
+	for i: int in range(path.size()):
+		var coord: Vector2i = path[i]
+		_add_room(coord, i == 0 or _rng.randf() < combat_room_ratio)
+		if i > 0:
+			_connect_rooms(path[i - 1], coord)
 
-		var next_coord: Vector2i = candidates[_rng.randi_range(0, candidates.size() - 1)]
-		_add_room(next_coord, _rng.randf() < combat_room_ratio)
-		_connect_rooms(base, next_coord)
-		frontier.append(next_coord)
+func _build_linear_room_path(target_rooms: int) -> Array[Vector2i]:
+	var best_path: Array[Vector2i] = [Vector2i.ZERO]
+	var max_attempts: int = 40
 
-	# Add loops to avoid purely tree-like progression.
-	var keys: Array = _rooms_by_key.keys()
-	for key_variant: Variant in keys:
-		var key: String = key_variant
-		var coord: Vector2i = _coord_from_key(key)
-		for dir: Vector2i in _cardinal_dirs():
-			if _rng.randf() > extra_loop_chance:
+	for _attempt: int in range(max_attempts):
+		var occupied: Dictionary = {}
+		var path: Array[Vector2i] = [Vector2i.ZERO]
+		occupied[_coord_key(Vector2i.ZERO)] = true
+
+		var guard_steps: int = target_rooms * 128
+		while path.size() < target_rooms and guard_steps > 0:
+			guard_steps -= 1
+			var current: Vector2i = path[path.size() - 1]
+			var candidates: Array[Vector2i] = _available_neighbors_for_path(current, occupied)
+
+			if candidates.is_empty():
+				if path.size() <= 1:
+					break
+				var removed: Vector2i = path.pop_back()
+				occupied.erase(_coord_key(removed))
 				continue
-			var other: Vector2i = coord + dir
-			var other_key: String = _coord_key(other)
-			if !_rooms_by_key.has(other_key):
-				continue
-			if _is_connected(coord, other):
-				continue
-			_connect_rooms(coord, other)
+
+			var next_coord: Vector2i = candidates[_rng.randi_range(0, candidates.size() - 1)]
+			path.append(next_coord)
+			occupied[_coord_key(next_coord)] = true
+
+		if path.size() > best_path.size():
+			best_path = path.duplicate()
+		if path.size() >= target_rooms:
+			return path
+
+	return best_path
 
 func _add_room(coord: Vector2i, force_combat: bool) -> void:
 	var is_combat: bool = force_combat
@@ -174,17 +186,13 @@ func _connect_rooms(a: Vector2i, b: Vector2i) -> void:
 	_neighbors_by_key[key_b] = neighbors_b
 	_edges.append(RoomEdge.new(a, b))
 
-func _is_connected(a: Vector2i, b: Vector2i) -> bool:
-	var neighbors: Array = _neighbors_by_key.get(_coord_key(a), [])
-	return b in neighbors
-
-func _available_neighbors(base: Vector2i) -> Array[Vector2i]:
+func _available_neighbors_for_path(base: Vector2i, occupied: Dictionary) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for dir: Vector2i in _cardinal_dirs():
 		var coord: Vector2i = base + dir
 		if abs(coord.x) > grid_radius or abs(coord.y) > grid_radius:
 			continue
-		if _rooms_by_key.has(_coord_key(coord)):
+		if occupied.has(_coord_key(coord)):
 			continue
 		out.append(coord)
 	return out
