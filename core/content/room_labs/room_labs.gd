@@ -18,6 +18,8 @@ extends Node3D
 
 @export_range(4.0, 8.0, 0.25) var room_height: float = 5.2
 @export_range(4.0, 12.0, 0.25) var corridor_width: float = 6.0
+@export_range(0.0, 6.0, 0.25) var corridor_target_length: float = 1.0
+@export_range(0.0, 2.0, 0.05) var room_cell_margin: float = 0.5
 @export_range(2.2, 4.5, 0.1) var doorway_height: float = 3.2
 @export_range(0.2, 1.0, 0.05) var wall_thickness: float = 0.5
 @export_range(0.2, 1.2, 0.05) var floor_thickness: float = 0.45
@@ -131,6 +133,8 @@ func __build_layout_graph() -> void:
 		if i > 0:
 			__connect_rooms(path[i - 1], coord)
 
+	__compact_connected_room_spans()
+
 func __build_linear_room_path(target_rooms: int) -> Array[Vector2i]:
 	var best_path: Array[Vector2i] = [Vector2i.ZERO]
 	var max_attempts: int = 40
@@ -175,8 +179,9 @@ func __add_room(coord: Vector2i, force_combat: bool) -> void:
 		width = __rng.randf_range(room_width_min, room_width_max)
 		depth = __rng.randf_range(room_depth_min, room_depth_max)
 
-	width = min(width, grid_step - 3.0)
-	depth = min(depth, grid_step - 3.0)
+	var max_room_span: float = __max_room_span()
+	width = min(width, max_room_span)
+	depth = min(depth, max_room_span)
 	width = max(width, corridor_width + 2.0)
 	depth = max(depth, corridor_width + 2.0)
 
@@ -216,6 +221,79 @@ func __available_neighbors_for_path(base: Vector2i, occupied: Dictionary) -> Arr
 			continue
 		out.append(coord)
 	return out
+
+func __compact_connected_room_spans() -> void:
+	if __edges.is_empty():
+		return
+
+	var target_corridor: float = maxf(corridor_target_length, 0.0)
+	var max_room_span: float = __max_room_span()
+	var max_iterations: int = 4
+
+	for _iteration: int in range(max_iterations):
+		var changed: bool = false
+		for edge: RoomEdge in __edges:
+			var a_room: RoomData = __rooms_by_key[__coord_key(edge.a)]
+			var b_room: RoomData = __rooms_by_key[__coord_key(edge.b)]
+			var direction: Vector2i = edge.b - edge.a
+			if direction == Vector2i.RIGHT or direction == Vector2i.LEFT:
+				var clear_x: float = maxf(absf(a_room.center.x - b_room.center.x) - a_room.width * 0.5 - b_room.width * 0.5, 0.0)
+				if clear_x > target_corridor:
+					var growth_needed: float = (clear_x - target_corridor) * 2.0
+					changed = __expand_room_pair_axis(a_room, b_room, true, growth_needed, max_room_span) or changed
+				continue
+			if direction == Vector2i.UP or direction == Vector2i.DOWN:
+				var clear_z: float = maxf(absf(a_room.center.z - b_room.center.z) - a_room.depth * 0.5 - b_room.depth * 0.5, 0.0)
+				if clear_z > target_corridor:
+					var growth_needed_z: float = (clear_z - target_corridor) * 2.0
+					changed = __expand_room_pair_axis(a_room, b_room, false, growth_needed_z, max_room_span) or changed
+		if !changed:
+			return
+
+func __expand_room_pair_axis(
+	a_room: RoomData,
+	b_room: RoomData,
+	along_x: bool,
+	total_growth: float,
+	max_room_span: float
+) -> bool:
+	if total_growth <= 0.0:
+		return false
+
+	var a_size: float = a_room.width if along_x else a_room.depth
+	var b_size: float = b_room.width if along_x else b_room.depth
+	var a_capacity: float = maxf(max_room_span - a_size, 0.0)
+	var b_capacity: float = maxf(max_room_span - b_size, 0.0)
+	if a_capacity <= 0.0 and b_capacity <= 0.0:
+		return false
+
+	var grow_a: float = minf(total_growth * 0.5, a_capacity)
+	var grow_b: float = minf(total_growth * 0.5, b_capacity)
+	var remaining: float = total_growth - (grow_a + grow_b)
+
+	if remaining > 0.0:
+		var extra_a: float = minf(remaining, a_capacity - grow_a)
+		grow_a += extra_a
+		remaining -= extra_a
+	if remaining > 0.0:
+		var extra_b: float = minf(remaining, b_capacity - grow_b)
+		grow_b += extra_b
+
+	if grow_a <= 0.001 and grow_b <= 0.001:
+		return false
+
+	if along_x:
+		a_room.width += grow_a
+		b_room.width += grow_b
+	else:
+		a_room.depth += grow_a
+		b_room.depth += grow_b
+	return true
+
+func __max_room_span() -> float:
+	var min_room_span: float = corridor_width + 2.0
+	var bounded_span: float = grid_step - room_cell_margin
+	return maxf(min_room_span, bounded_span)
 
 func __spawn_generated_geometry() -> void:
 	var root: Node3D = Node3D.new()
@@ -389,19 +467,21 @@ func __build_corridor(geom_root: Node3D, a_coord: Vector2i, b_coord: Vector2i) -
 		var sign_x: float = sign(float(direction.x))
 		var a_half: float = a_room.width * 0.5
 		var b_half: float = b_room.width * 0.5
-		var clear_distance: float = abs(b_center.x - a_center.x) - a_half - b_half
-		var length: float = max(clear_distance, 2.5)
+		var length: float = maxf(absf(b_center.x - a_center.x) - a_half - b_half, 0.0)
+		if length <= 0.05:
+			return
 		var center_x: float = a_center.x + sign_x * (a_half + length * 0.5)
 		var center_z: float = a_center.z
 		__build_corridor_segment(geom_root, Vector3(center_x, 0.0, center_z), length, true)
 		return
 
 	if direction == Vector2i.UP or direction == Vector2i.DOWN:
-		var sign_z: float = sign(float(direction.y))
+		var sign_z: float = signf(float(direction.y))
 		var a_half_z: float = a_room.depth * 0.5
 		var b_half_z: float = b_room.depth * 0.5
-		var clear_distance_z: float = abs(b_center.z - a_center.z) - a_half_z - b_half_z
-		var length_z: float = max(clear_distance_z, 2.5)
+		var length_z: float = maxf(absf(b_center.z - a_center.z) - a_half_z - b_half_z, 0.0)
+		if length_z <= 0.05:
+			return
 		var center_z2: float = a_center.z + sign_z * (a_half_z + length_z * 0.5)
 		var center_x2: float = a_center.x
 		__build_corridor_segment(geom_root, Vector3(center_x2, 0.0, center_z2), length_z, false)
