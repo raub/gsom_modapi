@@ -8,7 +8,6 @@ class RoomLightGrid:
 	var step_z: float = 0.0
 
 static func add_ceiling_strip(
-	add_solid_box: Callable,
 	geom_root: Node3D,
 	center: Vector3,
 	length: float,
@@ -24,7 +23,7 @@ static func add_ceiling_strip(
 		if runs_x
 		else Vector3(strip_width, 0.12, length)
 	)
-	add_solid_box.call(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"ceiling_strip",
 		strip_size,
@@ -34,7 +33,6 @@ static func add_ceiling_strip(
 	)
 
 static func add_room_ceiling_strips(
-	add_solid_box: Callable,
 	geom_root: Node3D,
 	center: Vector3,
 	width: float,
@@ -57,7 +55,6 @@ static func add_room_ceiling_strips(
 			var offset_x: float = -width * 0.5 + grid.step_x * float(x_index + 1)
 			var offset_z: float = -depth * 0.5 + grid.step_z * float(z_index + 1)
 			add_ceiling_strip(
-				add_solid_box,
 				geom_root,
 				center + Vector3(offset_x, 0.0, offset_z),
 				segment_length,

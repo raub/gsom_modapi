@@ -422,7 +422,7 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 	var coord: Vector2i = room.coord
 	var neighbors: Array = __neighbors_by_key.get(__coord_key(coord), [])
 
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"room_floor_%s" % __coord_key(coord),
 		Vector3(width, floor_thickness, depth),
@@ -430,7 +430,7 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 		RoomLabsGeneratorMaterials.mat_floor
 	)
 
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"room_ceiling_%s" % __coord_key(coord),
 		Vector3(width, floor_thickness, depth),
@@ -503,7 +503,6 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 
 	__add_room_trim(geom_root, center, width, depth, height)
 	RoomLabsGeneratorLighting.add_room_ceiling_strips(
-		Callable(self, "__add_solid_box"),
 		geom_root,
 		center,
 		width,
@@ -542,7 +541,7 @@ func __build_wall_with_optional_door(
 			if along_x
 			else Vector3(wall_thickness, room_height_local, length)
 		)
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			"wall_full",
 			full_size,
@@ -563,14 +562,14 @@ func __build_wall_with_optional_door(
 			if along_x
 			else Vector3(0.0, 0.0, side_offset)
 		)
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			"wall_side_a",
 			side_size,
 			wall_center_at_floor + Vector3(0.0, room_height_local * 0.5, 0.0) - side_axis,
 			RoomLabsGeneratorMaterials.mat_wall
 		)
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			"wall_side_b",
 			side_size,
@@ -584,7 +583,7 @@ func __build_wall_with_optional_door(
 			if along_x
 			else Vector3(wall_thickness, clamped_bottom, door_width)
 		)
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			"wall_door_lower_fill",
 			lower_fill_size,
@@ -598,7 +597,7 @@ func __build_wall_with_optional_door(
 			if along_x
 			else Vector3(wall_thickness, upper_height, door_width)
 		)
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			"wall_lintel",
 			upper_size,
@@ -708,7 +707,7 @@ func __build_corridor_segment(
 		if runs_x
 		else Vector3(corridor_width, floor_thickness, length)
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"corridor_ceiling",
 		ceiling_size,
@@ -726,14 +725,14 @@ func __build_corridor_segment(
 		if runs_x
 		else Vector3(corridor_width * 0.5 + wall_thickness * 0.5, 0.0, 0.0)
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"corridor_wall_a",
 		wall_size,
 		center + Vector3(0.0, envelope_height * 0.5, 0.0) + wall_offset_axis,
 		RoomLabsGeneratorMaterials.mat_wall
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"corridor_wall_b",
 		wall_size,
@@ -742,7 +741,6 @@ func __build_corridor_segment(
 	)
 
 	RoomLabsGeneratorLighting.add_ceiling_strip(
-		Callable(self, "__add_solid_box"),
 		geom_root,
 		center + Vector3(0.0, 0.0, 0.0),
 		length * 0.8,
@@ -871,7 +869,7 @@ func __try_add_room_door_bridge(geom_root: Node3D, room: RoomData, openings: Arr
 		if runs_x
 		else Vector3(bridge_width, floor_thickness, bridge_length)
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"door_bridge",
 		bridge_size,
@@ -1137,7 +1135,7 @@ func __add_elevated_platform(
 		if along_is_x
 		else Vector3(span_inward, floor_thickness, span_along)
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		base_name,
 		slab_size,
@@ -1149,7 +1147,7 @@ func __add_elevated_platform(
 
 	var support_size: Vector3 = slab_size
 	support_size.y = maxf(top_y - floor_thickness, 0.05)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"%s_support" % base_name,
 		support_size,
@@ -1217,7 +1215,7 @@ func __add_segmented_ramp(
 		if block_variant:
 			fallback_size_y = maxf(top_y + floor_thickness, floor_thickness)
 			fallback_center_y = top_y - fallback_size_y * 0.5
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			base_name,
 			Vector3(width, fallback_size_y, width),
@@ -1240,7 +1238,7 @@ func __add_segmented_ramp(
 	)
 	# In Godot, FORWARD is -Z; use BACK (+Z) so positive slope rises toward +local X.
 	var ramp_basis: Basis = Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, slope_angle)
-	__add_oriented_box(
+	RoomLabsGeneratorBoxes.add_oriented_box(
 		geom_root,
 		base_name,
 		Vector3(ramp_length, ramp_thickness, width),
@@ -1261,7 +1259,7 @@ func __add_segmented_ramp(
 			+ away_from_low_dir * (cap_length * 0.5 + cap_gap)
 			- Vector3(0.0, floor_thickness * 0.5, 0.0)
 		)
-		__add_oriented_box(
+		RoomLabsGeneratorBoxes.add_oriented_box(
 			geom_root,
 			"%s_cap" % base_name,
 			Vector3(cap_length, floor_thickness, width),
@@ -1275,7 +1273,7 @@ func __add_segmented_ramp(
 
 	var support_height: float = maxf(maxf(start.y, finish.y), floor_thickness)
 	var support_center: Vector3 = Vector3(ramp_midpoint.x, support_height * 0.5 - floor_thickness * 0.25, ramp_midpoint.z)
-	__add_oriented_box(
+	RoomLabsGeneratorBoxes.add_oriented_box(
 		geom_root,
 		"%s_support" % base_name,
 		Vector3(run + 0.05, support_height, width * 0.92),
@@ -1283,45 +1281,6 @@ func __add_segmented_ramp(
 		cap_basis,
 		RoomLabsGeneratorMaterials.mat_cover
 	)
-
-func __add_oriented_box(
-	parent: Node3D,
-	base_name: String,
-	size: Vector3,
-	pos: Vector3,
-	box_basis: Basis,
-	material: Material,
-	with_collision: bool = true
-) -> void:
-	var clamped_size: Vector3 = Vector3(
-		maxf(size.x, 0.05),
-		maxf(size.y, 0.05),
-		maxf(size.z, 0.05)
-	)
-
-	var node: Node3D = Node3D.new()
-	node.name = base_name
-	node.position = pos
-	node.basis = box_basis
-	parent.add_child(node)
-
-	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = clamped_size
-	mesh_instance.mesh = mesh
-	mesh_instance.material_override = material
-	node.add_child(mesh_instance)
-
-	if !with_collision:
-		return
-
-	var body: StaticBody3D = StaticBody3D.new()
-	node.add_child(body)
-	var collision: CollisionShape3D = CollisionShape3D.new()
-	var shape: BoxShape3D = BoxShape3D.new()
-	shape.size = clamped_size
-	collision.shape = shape
-	body.add_child(collision)
 
 func __add_room_trim(
 	geom_root: Node3D,
@@ -1334,28 +1293,28 @@ func __add_room_trim(
 	var trim_thickness: float = 0.25
 	var trim_offset: float = wall_thickness * 0.5 + trim_thickness * 0.5
 
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"trim_n",
 		Vector3(width * 0.85, trim_thickness, 0.35),
 		center + Vector3(0.0, trim_height, -depth * 0.5 + trim_offset),
 		RoomLabsGeneratorMaterials.mat_trim
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"trim_s",
 		Vector3(width * 0.85, trim_thickness, 0.35),
 		center + Vector3(0.0, trim_height, depth * 0.5 - trim_offset),
 		RoomLabsGeneratorMaterials.mat_trim
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"trim_w",
 		Vector3(0.35, trim_thickness, depth * 0.85),
 		center + Vector3(-width * 0.5 + trim_offset, trim_height, 0.0),
 		RoomLabsGeneratorMaterials.mat_trim
 	)
-	__add_solid_box(
+	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"trim_e",
 		Vector3(0.35, trim_thickness, depth * 0.85),
@@ -1380,50 +1339,13 @@ func __add_cover_props(geom_root: Node3D, room: RoomData) -> void:
 		if Vector2(offset_x, offset_z).length() < 3.4:
 			continue
 		var prop_size: Vector3 = Vector3(size_x, __rng.randf_range(1.0, 1.6), size_z)
-		__add_solid_box(
+		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			"cover",
 			prop_size,
 			center + Vector3(offset_x, prop_size.y * 0.5, offset_z),
 			RoomLabsGeneratorMaterials.mat_cover
 		)
-
-func __add_solid_box(
-	parent: Node3D,
-	base_name: String,
-	size: Vector3,
-	pos: Vector3,
-	material: Material,
-	with_collision: bool = true
-) -> void:
-	var clamped_size: Vector3 = Vector3(
-		maxf(size.x, 0.05),
-		maxf(size.y, 0.05),
-		maxf(size.z, 0.05)
-	)
-
-	var node: Node3D = Node3D.new()
-	node.name = base_name
-	node.position = pos
-	parent.add_child(node)
-
-	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = clamped_size
-	mesh_instance.mesh = mesh
-	mesh_instance.material_override = material
-	node.add_child(mesh_instance)
-
-	if !with_collision:
-		return
-
-	var body: StaticBody3D = StaticBody3D.new()
-	node.add_child(body)
-	var collision: CollisionShape3D = CollisionShape3D.new()
-	var shape: BoxShape3D = BoxShape3D.new()
-	shape.size = clamped_size
-	collision.shape = shape
-	body.add_child(collision)
 
 func __has_neighbor_in_dir(neighbors: Array, coord: Vector2i, dir: Vector2i) -> bool:
 	return (coord + dir) in neighbors
