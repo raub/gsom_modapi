@@ -39,6 +39,12 @@ class RoomData:
 	var depth: float = 0.0
 	var combat: bool = false
 
+class RoomLightGrid:
+	var lights_x: int = 1
+	var lights_z: int = 1
+	var step_x: float = 0.0
+	var step_z: float = 0.0
+
 var __rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var __rooms_by_key: Dictionary[String, RoomData] = {}
 var __neighbors_by_key: Dictionary = {}
@@ -364,7 +370,7 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 	)
 
 	__add_room_trim(geom_root, center, width, depth)
-	__add_ceiling_strip(geom_root, center, minf(width, depth) * 0.6)
+	__add_room_ceiling_strips(geom_root, center, width, depth)
 	__add_room_lights(light_root, center, width, depth, is_combat)
 
 	if is_combat:
@@ -581,6 +587,41 @@ func __add_ceiling_strip(
 		false
 	)
 
+func __room_light_grid(width: float, depth: float) -> RoomLightGrid:
+	var grid: RoomLightGrid = RoomLightGrid.new()
+	grid.lights_x = maxi(1, int(floorf(width / 10.0)))
+	grid.lights_z = maxi(1, int(floorf(depth / 10.0)))
+	grid.step_x = width / float(grid.lights_x + 1)
+	grid.step_z = depth / float(grid.lights_z + 1)
+	return grid
+
+func __add_room_ceiling_strips(
+	geom_root: Node3D,
+	center: Vector3,
+	width: float,
+	depth: float
+) -> void:
+	var grid: RoomLightGrid = __room_light_grid(width, depth)
+
+	var runs_x: bool = width >= depth
+	var segment_length: float = (
+		minf(grid.step_x * 0.72, width * 0.32)
+		if runs_x
+		else minf(grid.step_z * 0.72, depth * 0.32)
+	)
+	segment_length = clampf(segment_length, 1.4, 4.8)
+
+	for x_index: int in range(grid.lights_x):
+		for z_index: int in range(grid.lights_z):
+			var offset_x: float = -width * 0.5 + grid.step_x * float(x_index + 1)
+			var offset_z: float = -depth * 0.5 + grid.step_z * float(z_index + 1)
+			__add_ceiling_strip(
+				geom_root,
+				center + Vector3(offset_x, 0.0, offset_z),
+				segment_length,
+				runs_x
+			)
+
 func __add_room_lights(
 	light_root: Node3D,
 	center: Vector3,
@@ -588,11 +629,11 @@ func __add_room_lights(
 	depth: float,
 	is_combat: bool
 ) -> void:
-	var lights_x: int = maxi(1, int(floorf(width / 10.0)))
-	var lights_z: int = maxi(1, int(floorf(depth / 10.0)))
-
-	var step_x: float = width / float(lights_x + 1)
-	var step_z: float = depth / float(lights_z + 1)
+	var grid: RoomLightGrid = __room_light_grid(width, depth)
+	var lights_x: int = grid.lights_x
+	var lights_z: int = grid.lights_z
+	var step_x: float = grid.step_x
+	var step_z: float = grid.step_z
 	var base_range: float = clampf(maxf(width, depth) * 0.55, 8.5, 14.0)
 
 	for x_index: int in range(lights_x):
@@ -627,10 +668,10 @@ func __add_base_environment_lighting(root: Node3D, light_root: Node3D) -> void:
 
 func __add_origin_key_light(light_root: Node3D) -> void:
 	var light: OmniLight3D = OmniLight3D.new()
-	light.position = Vector3(0.0, room_height - 0.15, 0.0)
+	light.position = Vector3(0.0, room_height - 0.25, 0.0)
 	light.light_color = Color(0.92, 0.95, 1.0)
-	light.light_energy = 1.0
-	light.omni_range = 18.0
+	light.light_energy = 0.2
+	light.omni_range = 2.0
 	light_root.add_child(light)
 
 func __add_cover_props(geom_root: Node3D, room: RoomData) -> void:
