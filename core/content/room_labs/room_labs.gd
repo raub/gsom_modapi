@@ -302,6 +302,7 @@ func __spawn_generated_geometry() -> void:
 	for edge: RoomEdge in __edges:
 		__build_corridor(geom_root, edge.a, edge.b)
 
+	__add_base_environment_lighting(root, light_root)
 	__add_origin_key_light(light_root)
 
 func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void:
@@ -364,7 +365,7 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 
 	__add_room_trim(geom_root, center, width, depth)
 	__add_ceiling_strip(geom_root, center, minf(width, depth) * 0.6)
-	__add_room_light(light_root, center, is_combat)
+	__add_room_lights(light_root, center, width, depth, is_combat)
 
 	if is_combat:
 		__add_cover_props(geom_root, room)
@@ -580,21 +581,56 @@ func __add_ceiling_strip(
 		false
 	)
 
-func __add_room_light(light_root: Node3D, center: Vector3, is_combat: bool) -> void:
-	var light: OmniLight3D = OmniLight3D.new()
-	light.position = center + Vector3(0.0, room_height - 0.2, 0.0)
-	light.light_color = Color(0.78, 0.87, 1.0) if is_combat else Color(0.7, 0.8, 0.95)
-	light.light_energy = 1.2 if is_combat else 0.9
-	light.omni_range = 18.0 if is_combat else 14.0
-	light.shadow_enabled = false
-	light_root.add_child(light)
+func __add_room_lights(
+	light_root: Node3D,
+	center: Vector3,
+	width: float,
+	depth: float,
+	is_combat: bool
+) -> void:
+	var lights_x: int = maxi(1, int(floorf(width / 10.0)))
+	var lights_z: int = maxi(1, int(floorf(depth / 10.0)))
+
+	var step_x: float = width / float(lights_x + 1)
+	var step_z: float = depth / float(lights_z + 1)
+	var base_range: float = clampf(maxf(width, depth) * 0.55, 8.5, 14.0)
+
+	for x_index: int in range(lights_x):
+		for z_index: int in range(lights_z):
+			var light: OmniLight3D = OmniLight3D.new()
+			var offset_x: float = -width * 0.5 + step_x * float(x_index + 1)
+			var offset_z: float = -depth * 0.5 + step_z * float(z_index + 1)
+			light.position = center + Vector3(offset_x, room_height - 0.2, offset_z)
+			light.light_color = Color(1.0, 0.87, 0.78) if is_combat else Color(0.7, 0.95, 0.8)
+			light.light_energy = 0.55 if is_combat else 0.38
+			light.omni_range = base_range + (1.2 if is_combat else 0.0)
+			light.shadow_enabled = false
+			light_root.add_child(light)
+
+func __add_base_environment_lighting(root: Node3D, light_root: Node3D) -> void:
+	var world_env: WorldEnvironment = WorldEnvironment.new()
+	world_env.name = &"AmbientEnv"
+	var env: Environment = Environment.new()
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.2, 0.25, 0.32)
+	env.ambient_light_energy = 0.2
+	world_env.environment = env
+	root.add_child(world_env)
+
+	var directional: DirectionalLight3D = DirectionalLight3D.new()
+	directional.name = &"SoftFillDirectional"
+	directional.rotation_degrees = Vector3(-58.0, 28.0, 0.0)
+	directional.light_color = Color(0.72, 0.82, 0.95)
+	directional.light_energy = 0.16
+	directional.shadow_enabled = false
+	light_root.add_child(directional)
 
 func __add_origin_key_light(light_root: Node3D) -> void:
 	var light: OmniLight3D = OmniLight3D.new()
 	light.position = Vector3(0.0, room_height - 0.15, 0.0)
 	light.light_color = Color(0.92, 0.95, 1.0)
-	light.light_energy = 1.5
-	light.omni_range = 22.0
+	light.light_energy = 1.0
+	light.omni_range = 18.0
 	light_root.add_child(light)
 
 func __add_cover_props(geom_root: Node3D, room: RoomData) -> void:
