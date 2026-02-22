@@ -26,34 +26,18 @@ extends Node3D
 
 const GENERATED_ROOT_NAME: StringName = &"GeneratedLabs"
 const GENERATED_ROOT_PATH: NodePath = ^"GeneratedLabs"
+const CARDINAL_DIRS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 
 class RoomEdge:
-	var a: Vector2i
-	var b: Vector2i
-
-	func _init(from_coord: Vector2i, to_coord: Vector2i) -> void:
-		a = from_coord
-		b = to_coord
+	var a: Vector2i = Vector2i.ZERO
+	var b: Vector2i = Vector2i.ZERO
 
 class RoomData:
-	var coord: Vector2i
-	var center: Vector3
-	var width: float
-	var depth: float
-	var combat: bool
-
-	func _init(
-		p_coord: Vector2i,
-		p_center: Vector3,
-		p_width: float,
-		p_depth: float,
-		p_combat: bool
-	) -> void:
-		coord = p_coord
-		center = p_center
-		width = p_width
-		depth = p_depth
-		combat = p_combat
+	var coord: Vector2i = Vector2i.ZERO
+	var center: Vector3 = Vector3.ZERO
+	var width: float = 0.0
+	var depth: float = 0.0
+	var combat: bool = false
 
 var __rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var __rooms_by_key: Dictionary[String, RoomData] = {}
@@ -185,13 +169,12 @@ func __add_room(coord: Vector2i, force_combat: bool) -> void:
 	width = max(width, corridor_width + 2.0)
 	depth = max(depth, corridor_width + 2.0)
 
-	var room_data: RoomData = RoomData.new(
-		coord,
-		Vector3(float(coord.x) * grid_step, 0.0, float(coord.y) * grid_step),
-		width,
-		depth,
-		is_combat
-	)
+	var room_data: RoomData = RoomData.new()
+	room_data.coord = coord
+	room_data.center = Vector3(float(coord.x) * grid_step, 0.0, float(coord.y) * grid_step)
+	room_data.width = width
+	room_data.depth = depth
+	room_data.combat = is_combat
 	var key: String = __coord_key(coord)
 	__rooms_by_key[key] = room_data
 	__neighbors_by_key[key] = []
@@ -209,11 +192,14 @@ func __connect_rooms(a: Vector2i, b: Vector2i) -> void:
 	var neighbors_b: Array = __neighbors_by_key[key_b]
 	neighbors_b.append(a)
 	__neighbors_by_key[key_b] = neighbors_b
-	__edges.append(RoomEdge.new(a, b))
+	var edge: RoomEdge = RoomEdge.new()
+	edge.a = a
+	edge.b = b
+	__edges.append(edge)
 
 func __available_neighbors_for_path(base: Vector2i, occupied: Dictionary) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	for dir: Vector2i in __cardinal_dirs():
+	for dir: Vector2i in CARDINAL_DIRS:
 		var coord: Vector2i = base + dir
 		if abs(coord.x) > grid_radius or abs(coord.y) > grid_radius:
 			continue
@@ -684,6 +670,3 @@ func __coord_from_key(key: String) -> Vector2i:
 	if parts.size() != 2:
 		return Vector2i.ZERO
 	return Vector2i(int(parts[0]), int(parts[1]))
-
-func __cardinal_dirs() -> Array[Vector2i]:
-	return [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
