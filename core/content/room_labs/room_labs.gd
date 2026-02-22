@@ -17,6 +17,8 @@ extends Node3D
 @export_range(0.1, 0.8, 0.05) var combat_room_ratio: float = 0.35
 
 @export_range(4.0, 8.0, 0.25) var room_height: float = 5.2
+@export_range(0.0, 12.0, 0.25) var room_height_variation: float = 10.0
+@export_range(0.0, 8.0, 0.1) var adjacent_room_height_min_delta: float = 1.4
 @export_range(4.0, 12.0, 0.25) var corridor_width: float = 6.0
 @export_range(0.0, 6.0, 0.25) var corridor_target_length: float = 1.0
 @export_range(0.0, 2.0, 0.05) var room_cell_margin: float = 0.5
@@ -37,6 +39,7 @@ class RoomData:
 	var center: Vector3 = Vector3.ZERO
 	var width: float = 0.0
 	var depth: float = 0.0
+	var height: float = 0.0
 	var combat: bool = false
 
 class RoomLightGrid:
@@ -107,7 +110,7 @@ func __prepare_materials() -> void:
 	__mat_light.emission = Color(0.4, 0.6, 0.95)
 	__mat_light.emission_energy_multiplier = 1.35
 	__mat_light.metallic = 0.0
-	__mat_light.roughness = 0.1
+	__mat_light.roughness = 1.0
 
 func __build_layout_graph() -> void:
 	var grid_diameter: int = grid_radius * 2 + 1
@@ -119,7 +122,17 @@ func __build_layout_graph() -> void:
 
 	for i: int in range(path.size()):
 		var coord: Vector2i = path[i]
-		__add_room(coord, i == 0 or __rng.randf() < combat_room_ratio)
+		var adjacent_height_ref: float = -1.0
+		if i > 0:
+			var prev_key: String = __coord_key(path[i - 1])
+			if __rooms_by_key.has(prev_key):
+				var prev_room: RoomData = __rooms_by_key[prev_key]
+				adjacent_height_ref = prev_room.height
+		__add_room(
+			coord,
+			i == 0 or __rng.randf() < combat_room_ratio,
+			adjacent_height_ref
+		)
 		if i > 0:
 			__connect_rooms(path[i - 1], coord)
 
@@ -158,7 +171,7 @@ func __build_linear_room_path(target_rooms: int) -> Array[Vector2i]:
 
 	return best_path
 
-func __add_room(coord: Vector2i, force_combat: bool) -> void:
+func __add_room(coord: Vector2i, force_combat: bool, adjacent_height_ref: float = -1.0) -> void:
 	var is_combat: bool = force_combat
 	var width: float
 	var depth: float
@@ -180,10 +193,37 @@ func __add_room(coord: Vector2i, force_combat: bool) -> void:
 	room_data.center = Vector3(float(coord.x) * grid_step, 0.0, float(coord.y) * grid_step)
 	room_data.width = width
 	room_data.depth = depth
+	room_data.height = __sample_room_height(adjacent_height_ref)
 	room_data.combat = is_combat
 	var key: String = __coord_key(coord)
 	__rooms_by_key[key] = room_data
 	__neighbors_by_key[key] = []
+
+func __sample_room_height(adjacent_height_ref: float = -1.0) -> float:
+	var min_height: float = room_height
+	if room_height_variation <= 0.0:
+		return min_height
+
+	var max_height: float = min_height + room_height_variation
+	if adjacent_height_ref < 0.0:
+		return __rng.randf_range(min_height, max_height)
+
+	var required_delta: float = minf(adjacent_room_height_min_delta, room_height_variation)
+	if required_delta <= 0.0:
+		return __rng.randf_range(min_height, max_height)
+
+	for _attempt: int in range(12):
+		var candidate: float = __rng.randf_range(min_height, max_height)
+		if absf(candidate - adjacent_height_ref) >= required_delta:
+			return candidate
+
+	var distance_to_min: float = absf(adjacent_height_ref - min_height)
+	var distance_to_max: float = absf(adjacent_height_ref - max_height)
+	if distance_to_max >= distance_to_min:
+		var high_band_start: float = maxf(max_height - room_height_variation * 0.25, min_height)
+		return __rng.randf_range(high_band_start, max_height)
+	var low_band_end: float = minf(min_height + room_height_variation * 0.25, max_height)
+	return __rng.randf_range(min_height, low_band_end)
 
 func __connect_rooms(a: Vector2i, b: Vector2i) -> void:
 	var key_a: String = __coord_key(a)
@@ -309,12 +349,12 @@ func __spawn_generated_geometry() -> void:
 		__build_corridor(geom_root, edge.a, edge.b)
 
 	__add_base_environment_lighting(root, light_root)
-	__add_origin_key_light(light_root)
 
 func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void:
 	var center: Vector3 = room.center
 	var width: float = room.width
 	var depth: float = room.depth
+	var height: float = room.height
 	var is_combat: bool = room.combat
 	var coord: Vector2i = room.coord
 	var neighbors: Array = __neighbors_by_key.get(__coord_key(coord), [])
@@ -331,7 +371,7 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 		geom_root,
 		"room_ceiling_%s" % __coord_key(coord),
 		Vector3(width, floor_thickness, depth),
-		center + Vector3(0.0, room_height + floor_thickness * 0.5, 0.0),
+		center + Vector3(0.0, height + floor_thickness * 0.5, 0.0),
 		__mat_wall
 	)
 
@@ -345,33 +385,37 @@ func __build_room(geom_root: Node3D, light_root: Node3D, room: RoomData) -> void
 		center + Vector3(0.0, 0.0, -depth * 0.5),
 		width,
 		true,
-		north_open
+		north_open,
+		height
 	)
 	__build_wall_with_optional_door(
 		geom_root,
 		center + Vector3(0.0, 0.0, depth * 0.5),
 		width,
 		true,
-		south_open
+		south_open,
+		height
 	)
 	__build_wall_with_optional_door(
 		geom_root,
 		center + Vector3(-width * 0.5, 0.0, 0.0),
 		depth,
 		false,
-		west_open
+		west_open,
+		height
 	)
 	__build_wall_with_optional_door(
 		geom_root,
 		center + Vector3(width * 0.5, 0.0, 0.0),
 		depth,
 		false,
-		east_open
+		east_open,
+		height
 	)
 
-	__add_room_trim(geom_root, center, width, depth)
-	__add_room_ceiling_strips(geom_root, center, width, depth)
-	__add_room_lights(light_root, center, width, depth, is_combat)
+	__add_room_trim(geom_root, center, width, depth, height)
+	__add_room_ceiling_strips(geom_root, center, width, depth, height)
+	__add_room_lights(light_root, center, width, depth, height, is_combat)
 
 	if is_combat:
 		__add_cover_props(geom_root, room)
@@ -381,33 +425,34 @@ func __build_wall_with_optional_door(
 	wall_center_at_floor: Vector3,
 	length: float,
 	along_x: bool,
-	has_opening: bool
+	has_opening: bool,
+	room_height_local: float
 ) -> void:
 	var door_width: float = min(corridor_width + 1.0, length - 2.0)
 	var side_length: float = (length - door_width) * 0.5
-	var clear_height: float = min(doorway_height, room_height - 0.4)
-	var upper_height: float = room_height - clear_height
+	var clear_height: float = min(doorway_height, room_height_local - 0.4)
+	var upper_height: float = room_height_local - clear_height
 
 	if !has_opening or side_length <= 0.25:
 		var full_size: Vector3 = (
-			Vector3(length, room_height, wall_thickness)
+			Vector3(length, room_height_local, wall_thickness)
 			if along_x
-			else Vector3(wall_thickness, room_height, length)
+			else Vector3(wall_thickness, room_height_local, length)
 		)
 		__add_solid_box(
 			geom_root,
 			"wall_full",
 			full_size,
-			wall_center_at_floor + Vector3(0.0, room_height * 0.5, 0.0),
+			wall_center_at_floor + Vector3(0.0, room_height_local * 0.5, 0.0),
 			__mat_wall
 		)
 		return
 
 	if side_length > 0.3:
 		var side_size: Vector3 = (
-			Vector3(side_length, room_height, wall_thickness)
+			Vector3(side_length, room_height_local, wall_thickness)
 			if along_x
-			else Vector3(wall_thickness, room_height, side_length)
+			else Vector3(wall_thickness, room_height_local, side_length)
 		)
 		var side_offset: float = door_width * 0.5 + side_length * 0.5
 		var side_axis: Vector3 = (
@@ -419,14 +464,14 @@ func __build_wall_with_optional_door(
 			geom_root,
 			"wall_side_a",
 			side_size,
-			wall_center_at_floor + Vector3(0.0, room_height * 0.5, 0.0) - side_axis,
+			wall_center_at_floor + Vector3(0.0, room_height_local * 0.5, 0.0) - side_axis,
 			__mat_wall
 		)
 		__add_solid_box(
 			geom_root,
 			"wall_side_b",
 			side_size,
-			wall_center_at_floor + Vector3(0.0, room_height * 0.5, 0.0) + side_axis,
+			wall_center_at_floor + Vector3(0.0, room_height_local * 0.5, 0.0) + side_axis,
 			__mat_wall
 		)
 
@@ -465,7 +510,14 @@ func __build_corridor(geom_root: Node3D, a_coord: Vector2i, b_coord: Vector2i) -
 			return
 		var center_x: float = a_center.x + sign_x * (a_half + length * 0.5)
 		var center_z: float = a_center.z
-		__build_corridor_segment(geom_root, Vector3(center_x, 0.0, center_z), length, true)
+		var corridor_height: float = minf(a_room.height, b_room.height)
+		__build_corridor_segment(
+			geom_root,
+			Vector3(center_x, 0.0, center_z),
+			length,
+			true,
+			corridor_height
+		)
 		return
 
 	if direction == Vector2i.UP or direction == Vector2i.DOWN:
@@ -477,13 +529,21 @@ func __build_corridor(geom_root: Node3D, a_coord: Vector2i, b_coord: Vector2i) -
 			return
 		var center_z2: float = a_center.z + sign_z * (a_half_z + length_z * 0.5)
 		var center_x2: float = a_center.x
-		__build_corridor_segment(geom_root, Vector3(center_x2, 0.0, center_z2), length_z, false)
+		var corridor_height_z: float = minf(a_room.height, b_room.height)
+		__build_corridor_segment(
+			geom_root,
+			Vector3(center_x2, 0.0, center_z2),
+			length_z,
+			false,
+			corridor_height_z
+		)
 
 func __build_corridor_segment(
 	geom_root: Node3D,
 	center: Vector3,
 	length: float,
-	runs_x: bool
+	runs_x: bool,
+	corridor_height: float
 ) -> void:
 	var floor_size: Vector3 = (
 		Vector3(length, floor_thickness, corridor_width)
@@ -501,14 +561,14 @@ func __build_corridor_segment(
 		geom_root,
 		"corridor_ceiling",
 		floor_size,
-		center + Vector3(0.0, room_height + floor_thickness * 0.5, 0.0),
+		center + Vector3(0.0, corridor_height + floor_thickness * 0.5, 0.0),
 		__mat_wall
 	)
 
 	var wall_size: Vector3 = (
-		Vector3(length, room_height, wall_thickness)
+		Vector3(length, corridor_height, wall_thickness)
 		if runs_x
-		else Vector3(wall_thickness, room_height, length)
+		else Vector3(wall_thickness, corridor_height, length)
 	)
 	var wall_offset_axis: Vector3 = (
 		Vector3(0.0, 0.0, corridor_width * 0.5 + wall_thickness * 0.5)
@@ -519,21 +579,33 @@ func __build_corridor_segment(
 		geom_root,
 		"corridor_wall_a",
 		wall_size,
-		center + Vector3(0.0, room_height * 0.5, 0.0) + wall_offset_axis,
+		center + Vector3(0.0, corridor_height * 0.5, 0.0) + wall_offset_axis,
 		__mat_wall
 	)
 	__add_solid_box(
 		geom_root,
 		"corridor_wall_b",
 		wall_size,
-		center + Vector3(0.0, room_height * 0.5, 0.0) - wall_offset_axis,
+		center + Vector3(0.0, corridor_height * 0.5, 0.0) - wall_offset_axis,
 		__mat_wall
 	)
 
-	__add_ceiling_strip(geom_root, center + Vector3(0.0, 0.0, 0.0), length * 0.8, runs_x)
+	__add_ceiling_strip(
+		geom_root,
+		center + Vector3(0.0, 0.0, 0.0),
+		length * 0.8,
+		runs_x,
+		corridor_height
+	)
 
-func __add_room_trim(geom_root: Node3D, center: Vector3, width: float, depth: float) -> void:
-	var trim_height: float = min(room_height * 0.58, room_height - 0.7)
+func __add_room_trim(
+	geom_root: Node3D,
+	center: Vector3,
+	width: float,
+	depth: float,
+	room_height_local: float
+) -> void:
+	var trim_height: float = min(room_height_local * 0.58, room_height_local - 0.7)
 	var trim_thickness: float = 0.25
 	var trim_offset: float = wall_thickness * 0.5 + trim_thickness * 0.5
 
@@ -570,8 +642,10 @@ func __add_ceiling_strip(
 	geom_root: Node3D,
 	center: Vector3,
 	length: float,
-	runs_x: bool = true
+	runs_x: bool = true,
+	ceiling_height: float = 0.0
 ) -> void:
+	var ceiling_y: float = ceiling_height if ceiling_height > 0.0 else room_height
 	var strip_width: float = min(corridor_width * 0.35, 1.8)
 	var strip_size: Vector3 = (
 		Vector3(length, 0.12, strip_width)
@@ -582,7 +656,7 @@ func __add_ceiling_strip(
 		geom_root,
 		"ceiling_strip",
 		strip_size,
-		center + Vector3(0.0, room_height - 0.05, 0.0),
+		center + Vector3(0.0, ceiling_y - 0.05, 0.0),
 		__mat_light,
 		false
 	)
@@ -599,7 +673,8 @@ func __add_room_ceiling_strips(
 	geom_root: Node3D,
 	center: Vector3,
 	width: float,
-	depth: float
+	depth: float,
+	room_height_local: float
 ) -> void:
 	var grid: RoomLightGrid = __room_light_grid(width, depth)
 
@@ -619,7 +694,8 @@ func __add_room_ceiling_strips(
 				geom_root,
 				center + Vector3(offset_x, 0.0, offset_z),
 				segment_length,
-				runs_x
+				runs_x,
+				room_height_local
 			)
 
 func __add_room_lights(
@@ -627,6 +703,7 @@ func __add_room_lights(
 	center: Vector3,
 	width: float,
 	depth: float,
+	room_height_local: float,
 	is_combat: bool
 ) -> void:
 	var grid: RoomLightGrid = __room_light_grid(width, depth)
@@ -641,8 +718,8 @@ func __add_room_lights(
 			var light: OmniLight3D = OmniLight3D.new()
 			var offset_x: float = -width * 0.5 + step_x * float(x_index + 1)
 			var offset_z: float = -depth * 0.5 + step_z * float(z_index + 1)
-			light.position = center + Vector3(offset_x, room_height - 0.2, offset_z)
-			light.light_color = Color(1.0, 0.87, 0.78) if is_combat else Color(0.7, 0.95, 0.8)
+			light.position = center + Vector3(offset_x, room_height_local - 2.0, offset_z)
+			light.light_color = Color(0.9, 0.87, 0.85) if is_combat else Color(0.8, 0.90, 0.85)
 			light.light_energy = 0.55 if is_combat else 0.38
 			light.omni_range = base_range + (1.2 if is_combat else 0.0)
 			light.shadow_enabled = false
@@ -665,14 +742,6 @@ func __add_base_environment_lighting(root: Node3D, light_root: Node3D) -> void:
 	directional.light_energy = 0.16
 	directional.shadow_enabled = false
 	light_root.add_child(directional)
-
-func __add_origin_key_light(light_root: Node3D) -> void:
-	var light: OmniLight3D = OmniLight3D.new()
-	light.position = Vector3(0.0, room_height - 0.25, 0.0)
-	light.light_color = Color(0.92, 0.95, 1.0)
-	light.light_energy = 0.2
-	light.omni_range = 2.0
-	light_root.add_child(light)
 
 func __add_cover_props(geom_root: Node3D, room: RoomData) -> void:
 	var center: Vector3 = room.center
