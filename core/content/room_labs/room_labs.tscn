@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://30ado0snbrh"]
+[gd_scene load_steps=3 format=3 uid="uid://30ado0snbrh"]
 
 [ext_resource type="Script" uid="uid://2b3f8aawe1ql" path="res://core/content/room_labs/room_labs.gd" id="1_nrwq3"]
+[ext_resource type="PackedScene" uid="uid://ce0q38wdo6p7q" path="res://core/content/room_labs/generator/lab_generator.tscn" id="2_hny0t"]
 
 [node name="RoomLabs" type="Node3D"]
 script = ExtResource("1_nrwq3")
+
+[node name="LabGenerator" parent="." instance=ExtResource("2_hny0t")]
