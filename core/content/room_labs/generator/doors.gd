@@ -165,7 +165,7 @@ static func build_wall_with_optional_door(
 			"wall_lintel",
 			upper_size,
 			wall_center_at_floor + Vector3(0.0, clamped_bottom + clear_height + upper_height * 0.5, 0.0),
-			RoomLabsGeneratorMaterials.mat_trim
+			RoomLabsGeneratorMaterials.mat_wall
 		)
 
 static func __door_width_for_length(corridor_width: float, wall_length: float) -> float:

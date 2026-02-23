@@ -206,14 +206,36 @@ static func __try_add_room_door_bridge(
 	var bridge_world_y: float = room.center.y + bridge_local_y
 
 	var runs_x: bool = abs(dir_a_chosen.x) > 0
-	var bridge_length: float = (
-		room.width - wall_thickness * 2.0 - 1.2
-		if runs_x
-		else room.depth - wall_thickness * 2.0 - 1.2
+	var bridge_frame_offset: float = -wall_thickness * 0.5 + 0.03
+	var anchor_a: Vector3 = __door_inside_anchor(
+		room,
+		dir_a_chosen,
+		bridge_local_y,
+		wall_thickness,
+		bridge_frame_offset,
+		0.0
 	)
+	var anchor_b: Vector3 = __door_inside_anchor(
+		room,
+		dir_b_chosen,
+		bridge_local_y,
+		wall_thickness,
+		bridge_frame_offset,
+		0.0
+	)
+	var bridge_length: float = (
+		absf(anchor_b.x - anchor_a.x)
+		if runs_x
+		else absf(anchor_b.z - anchor_a.z)
+	) - wall_thickness
 	if bridge_length <= corridor_width * 0.8:
 		return []
 	var bridge_width: float = clampf(corridor_width * 0.72, 1.8, 4.2)
+	var bridge_center: Vector3 = Vector3(
+		(anchor_a.x + anchor_b.x) * 0.5 if runs_x else room.center.x,
+		bridge_world_y - floor_thickness * 0.5,
+		room.center.z if runs_x else (anchor_a.z + anchor_b.z) * 0.5
+	)
 	var bridge_size: Vector3 = (
 		Vector3(bridge_length, floor_thickness, bridge_width)
 		if runs_x
@@ -223,14 +245,21 @@ static func __try_add_room_door_bridge(
 		geom_root,
 		"door_bridge",
 		bridge_size,
-		Vector3(room.center.x, bridge_world_y - floor_thickness * 0.5, room.center.z),
+		bridge_center,
 		RoomLabsGeneratorMaterials.mat_trim
 	)
 
 	for opening_link: Dictionary in [opening_a, opening_b]:
 		var dir_link: Vector2i = opening_link["dir"]
 		var door_bottom_link: float = opening_link["door_bottom"]
-		var door_point: Vector3 = __door_inside_anchor(room, dir_link, door_bottom_link, wall_thickness, 0.7, 0.0)
+		var door_point: Vector3 = __door_inside_anchor(
+			room,
+			dir_link,
+			door_bottom_link,
+			wall_thickness,
+			bridge_frame_offset,
+			0.0
+		)
 		var bridge_point: Vector3 = Vector3(door_point.x, bridge_world_y, door_point.z)
 		if bridge_point.distance_to(door_point) >= 0.2:
 			add_segmented_ramp(
