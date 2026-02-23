@@ -82,7 +82,7 @@ func generate() -> void:
 	__rooms_by_key = layout_graph.rooms_by_key
 	__neighbors_by_key = layout_graph.neighbors_by_key
 	__edges = layout_graph.edges
-	__door_bottom_by_side = RoomLabsGeneratorRooms.plan_door_openings(
+	__door_bottom_by_side = RoomLabsGeneratorDoors.plan_door_openings(
 		__rooms_by_key,
 		__neighbors_by_key,
 		__rng,
@@ -117,7 +117,7 @@ func __spawn_generated_geometry() -> void:
 
 	var door_bottom_for_side: Callable = (
 		func(coord: Vector2i, dir: Vector2i, room_height_local: float) -> float:
-			return RoomLabsGeneratorRooms.door_bottom_for_side(
+			return RoomLabsGeneratorDoors.door_bottom_for_side(
 				coord,
 				dir,
 				room_height_local,
