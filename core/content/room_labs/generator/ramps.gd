@@ -86,13 +86,14 @@ static func add_segmented_ramp(
 		var top_y: float = maxf(start.y, finish.y)
 		var fallback_size_y: float = floor_thickness
 		var fallback_center_y: float = top_y - floor_thickness * 0.5
+		var fallback_width: float = minf(width, 0.85)
 		if block_variant:
 			fallback_size_y = maxf(top_y - low_y + floor_thickness, floor_thickness)
 			fallback_center_y = top_y - fallback_size_y * 0.5
 		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
 			base_name,
-			Vector3(width, fallback_size_y, width),
+			Vector3(fallback_width, fallback_size_y, fallback_width),
 			Vector3((start.x + finish.x) * 0.5, fallback_center_y, (start.z + finish.z) * 0.5),
 			material
 		)
@@ -101,7 +102,8 @@ static func add_segmented_ramp(
 	var flat_delta: Vector3 = horizontal_finish - horizontal_start
 	var flat_dir: Vector3 = flat_delta / run
 	var slope_angle: float = atan2(rise, run)
-	var yaw: float = atan2(flat_dir.z, flat_dir.x)
+	# Godot's +yaw rotates local +X toward -Z, so negate Z to align +X with flat_dir.
+	var yaw: float = atan2(-flat_dir.z, flat_dir.x)
 	var ramp_length: float = sqrt(run * run + rise * rise)
 	var ramp_thickness: float = floor_thickness
 	var ramp_midpoint: Vector3 = start.lerp(finish, 0.5)
@@ -126,21 +128,25 @@ static func add_segmented_ramp(
 		var high_is_finish: bool = finish.y >= start.y
 		var high_point: Vector3 = finish if high_is_finish else start
 		var away_from_low_dir: Vector3 = flat_dir if high_is_finish else -flat_dir
-		var cap_length: float = clampf(width * 0.52, 0.7, 1.8)
+		var cap_length: float = minf(width * 0.42, run * 0.33)
+		cap_length = minf(cap_length, 0.9)
+		if cap_length < 0.18:
+			cap_length = 0.0
 		var cap_gap: float = 0.01
-		var cap_center: Vector3 = (
-			high_point
-			+ away_from_low_dir * (cap_length * 0.5 + cap_gap)
-			- Vector3(0.0, floor_thickness * 0.5, 0.0)
-		)
-		RoomLabsGeneratorBoxes.add_oriented_box(
-			geom_root,
-			"%s_cap" % base_name,
-			Vector3(cap_length, floor_thickness, width),
-			cap_center,
-			cap_basis,
-			material
-		)
+		if cap_length > 0.0:
+			var cap_center: Vector3 = (
+				high_point
+				+ away_from_low_dir * (cap_length * 0.5 + cap_gap)
+				- Vector3(0.0, floor_thickness * 0.5, 0.0)
+			)
+			RoomLabsGeneratorBoxes.add_oriented_box(
+				geom_root,
+				"%s_cap" % base_name,
+				Vector3(cap_length, floor_thickness, width),
+				cap_center,
+				cap_basis,
+				material
+			)
 
 	if !block_variant:
 		return
@@ -296,7 +302,7 @@ static func __build_single_door_adaptor(
 	if door_bottom <= 0.05:
 		return
 
-	var block_variant: bool = rng.randf() < 0.45
+	var block_variant: bool = false
 	if door_bottom <= door_floor_snap_threshold + 0.2:
 		__build_door_step_adaptor(
 			geom_root,
@@ -412,12 +418,13 @@ static func __build_wall_strip_adaptor(
 	if ramp_count == 2:
 		ramp_signs = [-1.0, 1.0]
 
+	var built_ramps: int = 0
 	for ramp_sign: float in ramp_signs:
-		var top_offset: float = ramp_sign * maxf(span_along * 0.5 - 0.55, 0.15)
+		var top_offset: float = ramp_sign * maxf(span_along * 0.5 - 0.22, 0.05)
 		var top_point: Vector3 = (
 			platform_center
 			+ along * top_offset
-			+ inward * (platform_depth * 0.35)
+			+ inward * maxf(platform_depth * 0.5 - 0.08, 0.05)
 			+ Vector3(0.0, door_world_y - platform_center.y, 0.0)
 		)
 		var run_length: float = clampf(
@@ -425,30 +432,49 @@ static func __build_wall_strip_adaptor(
 			1.6,
 			wall_length * 0.42
 		)
-		__add_adaptor_ramp(
+		if __add_adaptor_ramp(
 			geom_root,
 			room,
 			top_point,
-			-along * ramp_sign,
+			inward,
 			run_length,
 			minf(platform_depth * 0.9, 2.2),
 			floor_thickness,
 			block_variant
-		)
+		):
+			built_ramps += 1
 
 	if !wall_to_wall and door_bottom <= 1.6 and rng.randf() < 0.5:
 		var frontal_top: Vector3 = (
 			platform_center
-			+ inward * (platform_depth * 0.5 - 0.15)
+			+ inward * maxf(platform_depth * 0.5 - 0.08, 0.05)
 			+ Vector3(0.0, door_world_y - platform_center.y, 0.0)
 		)
-		__add_adaptor_ramp(
+		if __add_adaptor_ramp(
 			geom_root,
 			room,
 			frontal_top,
 			inward,
 			clampf(door_bottom * 2.2 + 0.4, 1.4, 3.8),
 			minf(span_along * 0.5, 2.6),
+			floor_thickness,
+			block_variant
+		):
+			built_ramps += 1
+
+	if built_ramps == 0:
+		var fallback_top: Vector3 = (
+			platform_center
+			+ inward * maxf(platform_depth * 0.5 - 0.08, 0.05)
+			+ Vector3(0.0, door_world_y - platform_center.y, 0.0)
+		)
+		__add_adaptor_ramp(
+			geom_root,
+			room,
+			fallback_top,
+			inward,
+			clampf(door_bottom * 2.1 + 0.4, 1.2, wall_length * 0.45),
+			minf(span_along * 0.6, 2.6),
 			floor_thickness,
 			block_variant
 		)
@@ -492,13 +518,14 @@ static func __build_door_step_adaptor(
 		block_variant
 	)
 
+	var built_ramps: int = 0
 	if door_bottom <= 1.35 and rng.randf() < 0.65:
 		var frontal_top: Vector3 = (
 			step_center
-			+ inward * (step_depth * 0.5 - 0.1)
+			+ inward * maxf(step_depth * 0.5 - 0.08, 0.05)
 			+ Vector3(0.0, door_world_y - step_center.y, 0.0)
 		)
-		__add_adaptor_ramp(
+		if __add_adaptor_ramp(
 			geom_root,
 			room,
 			frontal_top,
@@ -507,8 +534,8 @@ static func __build_door_step_adaptor(
 			minf(step_span * 0.6, corridor_width * 0.7),
 			floor_thickness,
 			block_variant
-		)
-		return
+		):
+			return
 
 	var ramp_count: int = 1 + (1 if door_bottom > 2.2 and rng.randf() < 0.6 else 0)
 	var ramp_signs: Array[float] = [-1.0 if rng.randf() < 0.5 else 1.0]
@@ -517,17 +544,35 @@ static func __build_door_step_adaptor(
 	for ramp_sign: float in ramp_signs:
 		var lateral_top: Vector3 = (
 			step_center
-			+ along * (ramp_sign * maxf(step_span * 0.5 - 0.28, 0.1))
-			+ inward * (step_depth * 0.22)
+			+ along * (ramp_sign * maxf(step_span * 0.5 - 0.2, 0.05))
+			+ inward * maxf(step_depth * 0.5 - 0.08, 0.05)
+			+ Vector3(0.0, door_world_y - step_center.y, 0.0)
+		)
+		if __add_adaptor_ramp(
+			geom_root,
+			room,
+			lateral_top,
+			inward,
+			clampf(door_bottom * 2.1 + rng.randf_range(0.2, 1.2), 1.5, wall_length * 0.38),
+			minf(step_depth * 0.9, 2.0),
+			floor_thickness,
+			block_variant
+		):
+			built_ramps += 1
+
+	if built_ramps == 0:
+		var fallback_top: Vector3 = (
+			step_center
+			+ inward * maxf(step_depth * 0.5 - 0.08, 0.05)
 			+ Vector3(0.0, door_world_y - step_center.y, 0.0)
 		)
 		__add_adaptor_ramp(
 			geom_root,
 			room,
-			lateral_top,
-			-along * ramp_sign,
-			clampf(door_bottom * 2.1 + rng.randf_range(0.2, 1.2), 1.5, wall_length * 0.38),
-			minf(step_depth * 0.9, 2.0),
+			fallback_top,
+			inward,
+			clampf(door_bottom * 2.2 + 0.35, 1.2, wall_length * 0.45),
+			minf(step_span * 0.62, corridor_width * 0.82),
 			floor_thickness,
 			block_variant
 		)
@@ -561,6 +606,8 @@ static func __add_elevated_platform(
 		return
 
 	var support_size: Vector3 = slab_size
+	support_size.x = maxf(support_size.x - 0.45, 0.35)
+	support_size.z = maxf(support_size.z - 0.45, 0.35)
 	support_size.y = maxf(elevation - floor_thickness, 0.05)
 	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
@@ -579,10 +626,10 @@ static func __add_adaptor_ramp(
 	width: float,
 	floor_thickness: float,
 	block_variant: bool
-) -> void:
+) -> bool:
 	var horizontal_dir: Vector3 = Vector3(top_to_base_direction.x, 0.0, top_to_base_direction.z)
 	if horizontal_dir.length() <= 0.01:
-		return
+		return false
 	horizontal_dir = horizontal_dir.normalized()
 	var base_point: Vector3 = top_point + horizontal_dir * desired_run
 	base_point.y = room.center.y
@@ -590,7 +637,7 @@ static func __add_adaptor_ramp(
 
 	var horizontal_span: float = Vector2(base_point.x - top_point.x, base_point.z - top_point.z).length()
 	if horizontal_span < 0.8:
-		return
+		return false
 
 	add_segmented_ramp(
 		geom_root,
@@ -598,11 +645,12 @@ static func __add_adaptor_ramp(
 		base_point,
 		top_point,
 		width,
-		block_variant,
+		false,
 		RoomLabsGeneratorMaterials.mat_floor,
 		floor_thickness,
 		false
 	)
+	return true
 
 static func __clamp_point_inside_room(room: RoomData, point: Vector3, margin: float = 0.4) -> Vector3:
 	return Vector3(
