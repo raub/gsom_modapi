@@ -13,38 +13,48 @@ static func plan_door_openings(
 	elevated_door_chance: float
 ) -> Dictionary[String, float]:
 	var door_bottom_by_side: Dictionary[String, float] = {}
+	var traversal: Array[Vector2i] = __build_generation_walk(rooms_by_key, neighbors_by_key)
+	var last_local_by_room_key: Dictionary = {}
+
+	for i: int in range(maxi(traversal.size() - 1, 0)):
+		__assign_edge_door_opening(
+			rooms_by_key,
+			rng,
+			doorway_height,
+			door_floor_snap_threshold,
+			door_split_min_delta,
+			elevated_door_chance,
+			door_bottom_by_side,
+			last_local_by_room_key,
+			traversal[i],
+			traversal[i + 1]
+		)
+
+	# Fallback for disconnected/non-linear cases: ensure every edge still receives a valid assignment.
 	for room_key: String in rooms_by_key.keys():
 		var room: RoomData = rooms_by_key[room_key]
 		var neighbors: Array = neighbors_by_key.get(room_key, [])
-		if neighbors.is_empty():
-			continue
-
-		var dirs: Array[Vector2i] = []
 		for neighbor_coord: Vector2i in neighbors:
-			dirs.append(neighbor_coord - room.coord)
-		if dirs.is_empty():
-			continue
-
-		var max_bottom: float = __max_door_bottom_from_height(room.height, doorway_height)
-		if dirs.size() == 1:
-			door_bottom_by_side[__side_key(room.coord, dirs[0])] = __sample_single_door_bottom(
+			if !__should_process_edge(room.coord, neighbor_coord):
+				continue
+			var dir: Vector2i = neighbor_coord - room.coord
+			if absi(dir.x) + absi(dir.y) != 1:
+				continue
+			var side_key: String = __side_key(room.coord, dir)
+			if door_bottom_by_side.has(side_key):
+				continue
+			__assign_edge_door_opening(
+				rooms_by_key,
 				rng,
-				max_bottom,
+				doorway_height,
+				door_floor_snap_threshold,
+				door_split_min_delta,
 				elevated_door_chance,
-				door_floor_snap_threshold
+				door_bottom_by_side,
+				last_local_by_room_key,
+				room.coord,
+				neighbor_coord
 			)
-			continue
-
-		var pair: Array[float] = __sample_two_door_bottoms(
-			rng,
-			max_bottom,
-			elevated_door_chance,
-			door_split_min_delta,
-			door_floor_snap_threshold
-		)
-		for dir_index: int in range(dirs.size()):
-			var use_index: int = mini(dir_index, pair.size() - 1)
-			door_bottom_by_side[__side_key(room.coord, dirs[dir_index])] = pair[use_index]
 
 	return door_bottom_by_side
 
@@ -247,6 +257,214 @@ static func __quantize_door_bottom(
 	if snapped_value < door_floor_snap_threshold:
 		return 0.0
 	return clampf(snapped_value, 0.0, max_bottom)
+
+static func __assign_edge_door_opening(
+	rooms_by_key: Dictionary[String, RoomData],
+	rng: RandomNumberGenerator,
+	doorway_height: float,
+	door_floor_snap_threshold: float,
+	door_split_min_delta: float,
+	elevated_door_chance: float,
+	door_bottom_by_side: Dictionary[String, float],
+	last_local_by_room_key: Dictionary,
+	a_coord: Vector2i,
+	b_coord: Vector2i
+) -> void:
+	var key_a: String = __coord_key(a_coord)
+	var key_b: String = __coord_key(b_coord)
+	if !rooms_by_key.has(key_a) or !rooms_by_key.has(key_b):
+		return
+	var direction: Vector2i = b_coord - a_coord
+	if absi(direction.x) + absi(direction.y) != 1:
+		return
+
+	var room_a: RoomData = rooms_by_key[key_a]
+	var room_b: RoomData = rooms_by_key[key_b]
+	var max_bottom_a: float = __max_door_bottom_from_height(room_a.height, doorway_height)
+	var max_bottom_b: float = __max_door_bottom_from_height(room_b.height, doorway_height)
+	var has_previous_local: bool = last_local_by_room_key.has(key_a)
+	var previous_local: float = float(last_local_by_room_key[key_a]) if has_previous_local else 0.0
+	var preferred_local_a: float = __sample_local_from_room_context(
+		rng,
+		max_bottom_a,
+		has_previous_local,
+		previous_local,
+		elevated_door_chance,
+		door_split_min_delta,
+		door_floor_snap_threshold
+	)
+	var preferred_world: float = room_a.center.y + preferred_local_a
+	var shared_world: float = __solve_shared_world_height(
+		room_a.center.y,
+		max_bottom_a,
+		room_b.center.y,
+		max_bottom_b,
+		preferred_world,
+		door_floor_snap_threshold
+	)
+	if is_nan(shared_world):
+		var world_min: float = maxf(room_a.center.y, room_b.center.y)
+		var world_max: float = minf(room_a.center.y + max_bottom_a, room_b.center.y + max_bottom_b)
+		if world_max < world_min:
+			shared_world = world_min
+		else:
+			shared_world = snappedf(clampf(preferred_world, world_min, world_max), 0.25)
+
+	var local_a: float = __quantize_door_bottom(
+		shared_world - room_a.center.y,
+		max_bottom_a,
+		door_floor_snap_threshold
+	)
+	var local_b: float = __quantize_door_bottom(
+		shared_world - room_b.center.y,
+		max_bottom_b,
+		door_floor_snap_threshold
+	)
+	var world_a: float = room_a.center.y + local_a
+	var world_b: float = room_b.center.y + local_b
+	if absf(world_a - world_b) > 0.001:
+		var solved_world: float = __solve_shared_world_height(
+			room_a.center.y,
+			max_bottom_a,
+			room_b.center.y,
+			max_bottom_b,
+			shared_world,
+			door_floor_snap_threshold
+		)
+		if !is_nan(solved_world):
+			local_a = __quantize_door_bottom(
+				solved_world - room_a.center.y,
+				max_bottom_a,
+				door_floor_snap_threshold
+			)
+			local_b = __quantize_door_bottom(
+				solved_world - room_b.center.y,
+				max_bottom_b,
+				door_floor_snap_threshold
+			)
+
+	door_bottom_by_side[__side_key(a_coord, direction)] = local_a
+	door_bottom_by_side[__side_key(b_coord, -direction)] = local_b
+	last_local_by_room_key[key_a] = local_a
+	last_local_by_room_key[key_b] = local_b
+
+static func __sample_local_from_room_context(
+	rng: RandomNumberGenerator,
+	max_bottom: float,
+	has_previous_local: bool,
+	previous_local: float,
+	elevated_door_chance: float,
+	door_split_min_delta: float,
+	door_floor_snap_threshold: float
+) -> float:
+	if max_bottom <= 0.0:
+		return 0.0
+	if !has_previous_local:
+		return __sample_single_door_bottom(rng, max_bottom, elevated_door_chance, door_floor_snap_threshold)
+	if rng.randf() < 0.28:
+		return __quantize_door_bottom(previous_local, max_bottom, door_floor_snap_threshold)
+
+	var candidate: float = __sample_single_door_bottom(
+		rng,
+		max_bottom,
+		elevated_door_chance,
+		door_floor_snap_threshold
+	)
+	if absf(candidate - previous_local) >= door_split_min_delta:
+		return candidate
+
+	var push_sign: float = 1.0 if rng.randf() < 0.5 else -1.0
+	var pushed: float = __quantize_door_bottom(
+		previous_local + push_sign * door_split_min_delta,
+		max_bottom,
+		door_floor_snap_threshold
+	)
+	if absf(pushed - previous_local) >= 0.25:
+		return pushed
+	return __sample_elevated_door_bottom(rng, max_bottom, door_floor_snap_threshold)
+
+static func __solve_shared_world_height(
+	floor_a: float,
+	max_bottom_a: float,
+	floor_b: float,
+	max_bottom_b: float,
+	preferred_world: float,
+	door_floor_snap_threshold: float
+) -> float:
+	var world_min: float = maxf(floor_a, floor_b)
+	var world_max: float = minf(floor_a + max_bottom_a, floor_b + max_bottom_b)
+	if world_max < world_min:
+		return NAN
+
+	var step_start: int = ceili(world_min * 4.0 - 0.0001)
+	var step_end: int = floori(world_max * 4.0 + 0.0001)
+	var best_world: float = NAN
+	var best_distance: float = INF
+	for step: int in range(step_start, step_end + 1):
+		var candidate_world: float = float(step) * 0.25
+		var local_a: float = __quantize_door_bottom(
+			candidate_world - floor_a,
+			max_bottom_a,
+			door_floor_snap_threshold
+		)
+		var local_b: float = __quantize_door_bottom(
+			candidate_world - floor_b,
+			max_bottom_b,
+			door_floor_snap_threshold
+		)
+		var aligned_world_a: float = floor_a + local_a
+		var aligned_world_b: float = floor_b + local_b
+		if absf(aligned_world_a - aligned_world_b) > 0.001:
+			continue
+		var distance: float = absf(aligned_world_a - preferred_world)
+		if distance < best_distance:
+			best_distance = distance
+			best_world = aligned_world_a
+	return best_world
+
+static func __build_generation_walk(
+	rooms_by_key: Dictionary[String, RoomData],
+	neighbors_by_key: Dictionary
+) -> Array[Vector2i]:
+	if rooms_by_key.is_empty():
+		return []
+
+	var start: Vector2i = Vector2i.ZERO
+	if !rooms_by_key.has(__coord_key(start)):
+		start = __coord_from_key(str(rooms_by_key.keys()[0]))
+
+	var walk: Array[Vector2i] = []
+	var visited: Dictionary = {}
+	var current: Vector2i = start
+
+	while true:
+		var current_key: String = __coord_key(current)
+		if visited.has(current_key):
+			break
+		visited[current_key] = true
+		walk.append(current)
+		var next_found: bool = false
+		for neighbor_coord: Vector2i in neighbors_by_key.get(current_key, []):
+			if visited.has(__coord_key(neighbor_coord)):
+				continue
+			current = neighbor_coord
+			next_found = true
+			break
+		if !next_found:
+			break
+
+	return walk
+
+static func __coord_from_key(key: String) -> Vector2i:
+	var parts: PackedStringArray = key.split(",")
+	if parts.size() != 2:
+		return Vector2i.ZERO
+	return Vector2i(int(parts[0]), int(parts[1]))
+
+static func __should_process_edge(a: Vector2i, b: Vector2i) -> bool:
+	if a.x != b.x:
+		return a.x < b.x
+	return a.y < b.y
 
 static func __max_door_bottom_from_height(room_height_local: float, doorway_height: float) -> float:
 	var nominal_clear_height: float = minf(doorway_height, room_height_local - 0.4)

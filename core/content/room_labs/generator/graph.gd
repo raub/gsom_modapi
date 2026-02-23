@@ -28,6 +28,10 @@ static func build_layout_graph(
 	room_height: float,
 	room_height_variation: float,
 	adjacent_room_height_min_delta: float,
+	room_floor_variation: float,
+	adjacent_room_floor_min_delta: float,
+	doorway_height: float,
+	door_floor_snap_threshold: float,
 	corridor_target_length: float,
 	room_cell_margin: float
 ) -> LayoutGraph:
@@ -42,11 +46,13 @@ static func build_layout_graph(
 	for i: int in range(path.size()):
 		var coord: Vector2i = path[i]
 		var adjacent_height_ref: float = -1.0
+		var adjacent_floor_ref: float = INF
 		if i > 0:
 			var prev_key: String = __coord_key(path[i - 1])
 			if graph.rooms_by_key.has(prev_key):
 				var prev_room: RoomData = graph.rooms_by_key[prev_key]
 				adjacent_height_ref = prev_room.height
+				adjacent_floor_ref = prev_room.center.y
 		__add_room(
 			rng,
 			graph.rooms_by_key,
@@ -66,8 +72,14 @@ static func build_layout_graph(
 			room_height,
 			room_height_variation,
 			adjacent_room_height_min_delta,
+			room_floor_variation,
+			adjacent_room_floor_min_delta,
+			doorway_height,
+			door_floor_snap_threshold,
 			room_cell_margin,
-			adjacent_height_ref
+			adjacent_height_ref,
+			adjacent_floor_ref,
+			i == 0
 		)
 		if i > 0:
 			__connect_rooms(graph.neighbors_by_key, graph.edges, path[i - 1], coord)
@@ -139,8 +151,14 @@ static func __add_room(
 	room_height: float,
 	room_height_variation: float,
 	adjacent_room_height_min_delta: float,
+	room_floor_variation: float,
+	adjacent_room_floor_min_delta: float,
+	doorway_height: float,
+	door_floor_snap_threshold: float,
 	room_cell_margin: float,
-	adjacent_height_ref: float = -1.0
+	adjacent_height_ref: float = -1.0,
+	adjacent_floor_ref: float = INF,
+	force_floor_zero: bool = false
 ) -> void:
 	var is_combat: bool = force_combat
 	var width: float
@@ -158,18 +176,33 @@ static func __add_room(
 	width = max(width, corridor_width + 2.0)
 	depth = max(depth, corridor_width + 2.0)
 
-	var room_data: RoomData = RoomData.new()
-	room_data.coord = coord
-	room_data.center = Vector3(float(coord.x) * grid_step, 0.0, float(coord.y) * grid_step)
-	room_data.width = width
-	room_data.depth = depth
-	room_data.height = __sample_room_height(
+	var sampled_height: float = __sample_room_height(
 		rng,
 		room_height,
 		room_height_variation,
 		adjacent_room_height_min_delta,
 		adjacent_height_ref
 	)
+	var room_data: RoomData = RoomData.new()
+	var floor_offset: float = (
+		0.0
+		if force_floor_zero
+		else __sample_room_floor_offset(
+			rng,
+			room_floor_variation,
+			adjacent_room_floor_min_delta,
+			adjacent_floor_ref,
+			sampled_height,
+			adjacent_height_ref,
+			doorway_height,
+			door_floor_snap_threshold
+		)
+	)
+	room_data.coord = coord
+	room_data.center = Vector3(float(coord.x) * grid_step, floor_offset, float(coord.y) * grid_step)
+	room_data.width = width
+	room_data.depth = depth
+	room_data.height = sampled_height
 	room_data.combat = is_combat
 	var key: String = __coord_key(coord)
 	rooms_by_key[key] = room_data
@@ -206,6 +239,124 @@ static func __sample_room_height(
 		return rng.randf_range(high_band_start, max_height)
 	var low_band_end: float = minf(min_height + room_height_variation * 0.25, max_height)
 	return rng.randf_range(min_height, low_band_end)
+
+static func __sample_room_floor_offset(
+	rng: RandomNumberGenerator,
+	room_floor_variation: float,
+	adjacent_room_floor_min_delta: float,
+	adjacent_floor_ref: float = INF,
+	room_height_local: float = 0.0,
+	adjacent_room_height: float = -1.0,
+	doorway_height: float = 0.0,
+	door_floor_snap_threshold: float = 0.0
+) -> float:
+	if room_floor_variation <= 0.0:
+		return 0.0
+
+	var min_floor: float = snappedf(-room_floor_variation, 0.25)
+	var max_floor: float = snappedf(room_floor_variation, 0.25)
+	if is_inf(adjacent_floor_ref):
+		return snappedf(rng.randf_range(min_floor, max_floor), 0.25)
+
+	var required_delta: float = minf(adjacent_room_floor_min_delta, room_floor_variation * 2.0)
+	var max_bottom_local: float = __max_door_bottom_from_height(room_height_local, doorway_height)
+	var max_bottom_adjacent: float = __max_door_bottom_from_height(adjacent_room_height, doorway_height)
+	var overlap_floor_min: float = snappedf(adjacent_floor_ref - max_bottom_local, 0.25)
+	var overlap_floor_max: float = snappedf(adjacent_floor_ref + max_bottom_adjacent, 0.25)
+	min_floor = maxf(min_floor, overlap_floor_min)
+	max_floor = minf(max_floor, overlap_floor_max)
+
+	if max_floor < min_floor:
+		return snappedf(clampf(adjacent_floor_ref, -room_floor_variation, room_floor_variation), 0.25)
+
+	for _attempt: int in range(32):
+		var candidate: float = snappedf(rng.randf_range(min_floor, max_floor), 0.25)
+		if required_delta > 0.0 and absf(candidate - adjacent_floor_ref) < required_delta:
+			continue
+		if __has_shared_door_world_height(
+			adjacent_floor_ref,
+			adjacent_room_height,
+			candidate,
+			room_height_local,
+			doorway_height,
+			door_floor_snap_threshold
+		):
+			return candidate
+
+	var step_start: int = ceili(min_floor * 4.0 - 0.0001)
+	var step_end: int = floori(max_floor * 4.0 + 0.0001)
+	var best_with_delta: float = INF
+	var best_any: float = INF
+
+	for step: int in range(step_start, step_end + 1):
+		var candidate_step: float = float(step) * 0.25
+		if !__has_shared_door_world_height(
+			adjacent_floor_ref,
+			adjacent_room_height,
+			candidate_step,
+			room_height_local,
+			doorway_height,
+			door_floor_snap_threshold
+		):
+			continue
+		if required_delta <= 0.0 or absf(candidate_step - adjacent_floor_ref) >= required_delta:
+			if is_inf(best_with_delta) or absf(candidate_step - adjacent_floor_ref) > absf(best_with_delta - adjacent_floor_ref):
+				best_with_delta = candidate_step
+		if is_inf(best_any) or absf(candidate_step - adjacent_floor_ref) > absf(best_any - adjacent_floor_ref):
+			best_any = candidate_step
+
+	if !is_inf(best_with_delta):
+		return best_with_delta
+	if !is_inf(best_any):
+		return best_any
+
+	return snappedf(clampf(adjacent_floor_ref, -room_floor_variation, room_floor_variation), 0.25)
+
+static func __has_shared_door_world_height(
+	floor_a: float,
+	height_a: float,
+	floor_b: float,
+	height_b: float,
+	doorway_height: float,
+	door_floor_snap_threshold: float
+) -> bool:
+	var max_bottom_a: float = __max_door_bottom_from_height(height_a, doorway_height)
+	var max_bottom_b: float = __max_door_bottom_from_height(height_b, doorway_height)
+	var world_min: float = maxf(floor_a, floor_b)
+	var world_max: float = minf(floor_a + max_bottom_a, floor_b + max_bottom_b)
+	if world_max < world_min:
+		return false
+
+	var step_start: int = ceili(world_min * 4.0 - 0.0001)
+	var step_end: int = floori(world_max * 4.0 + 0.0001)
+	for step: int in range(step_start, step_end + 1):
+		var world_y: float = float(step) * 0.25
+		var local_a: float = __quantize_door_bottom(
+			world_y - floor_a,
+			max_bottom_a,
+			door_floor_snap_threshold
+		)
+		var local_b: float = __quantize_door_bottom(
+			world_y - floor_b,
+			max_bottom_b,
+			door_floor_snap_threshold
+		)
+		var world_a: float = floor_a + local_a
+		var world_b: float = floor_b + local_b
+		if absf(world_a - world_b) <= 0.001:
+			return true
+	return false
+
+static func __quantize_door_bottom(value: float, max_bottom: float, door_floor_snap_threshold: float) -> float:
+	var clamped: float = clampf(value, 0.0, max_bottom)
+	var snapped_value: float = snappedf(clamped, 0.25)
+	if snapped_value < door_floor_snap_threshold:
+		return 0.0
+	return clampf(snapped_value, 0.0, max_bottom)
+
+static func __max_door_bottom_from_height(room_height_local: float, doorway_height: float) -> float:
+	var nominal_clear_height: float = minf(doorway_height, room_height_local - 0.4)
+	return maxf(room_height_local - nominal_clear_height - 0.2, 0.0)
 
 static func __connect_rooms(
 	neighbors_by_key: Dictionary,

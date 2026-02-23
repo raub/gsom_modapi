@@ -23,6 +23,8 @@ class_name RoomLabsGenerator
 @export_range(4.0, 8.0, 0.25) var room_height: float = 5.2
 @export_range(0.0, 12.0, 0.25) var room_height_variation: float = 10.0
 @export_range(0.0, 8.0, 0.1) var adjacent_room_height_min_delta: float = 1.4
+@export_range(0.0, 12.0, 0.25) var room_floor_variation: float = 3.0
+@export_range(0.0, 8.0, 0.1) var adjacent_room_floor_min_delta: float = 1.2
 @export_range(4.0, 12.0, 0.25) var corridor_width: float = 6.0
 @export_range(0.0, 6.0, 0.25) var corridor_target_length: float = 1.0
 @export_range(0.0, 2.0, 0.05) var room_cell_margin: float = 0.5
@@ -76,6 +78,10 @@ func generate() -> void:
 		room_height,
 		room_height_variation,
 		adjacent_room_height_min_delta,
+		room_floor_variation,
+		adjacent_room_floor_min_delta,
+		doorway_height,
+		door_floor_snap_threshold,
 		corridor_target_length,
 		room_cell_margin
 	)
