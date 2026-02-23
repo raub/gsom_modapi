@@ -139,7 +139,22 @@ static func build_room(
 		door_bottom_for_side
 	)
 
-	__add_room_trim(geom_root, center, width, depth, height, wall_thickness)
+	__add_room_trim(
+		geom_root,
+		center,
+		width,
+		depth,
+		height,
+		wall_thickness,
+		north_open,
+		north_bottom,
+		south_open,
+		south_bottom,
+		east_open,
+		east_bottom,
+		west_open,
+		west_bottom
+	)
 	RoomLabsGeneratorLighting.add_room_ceiling_strips(
 		geom_root,
 		center,
@@ -160,8 +175,25 @@ static func __add_room_trim(
 	width: float,
 	depth: float,
 	room_height_local: float,
-	wall_thickness: float
+	wall_thickness: float,
+	north_open: bool,
+	north_bottom: float,
+	south_open: bool,
+	south_bottom: float,
+	east_open: bool,
+	east_bottom: float,
+	west_open: bool,
+	west_bottom: float
 ) -> void:
+	var has_non_floor_door: bool = (
+		(north_open and north_bottom > 0.05)
+		or (south_open and south_bottom > 0.05)
+		or (east_open and east_bottom > 0.05)
+		or (west_open and west_bottom > 0.05)
+	)
+	if has_non_floor_door:
+		return
+
 	var trim_height: float = min(room_height_local * 0.58, room_height_local - 0.7)
 	var trim_thickness: float = 0.25
 	var trim_offset: float = wall_thickness * 0.5 + trim_thickness * 0.5

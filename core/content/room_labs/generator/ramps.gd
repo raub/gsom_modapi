@@ -28,6 +28,7 @@ static func add_room_door_adaptors(
 			{
 				"dir": dir,
 				"door_bottom": door_bottom,
+				"door_world_y": room.center.y + door_bottom,
 				"wall_length": wall_length,
 				"door_width": __door_width_for_length(corridor_width, wall_length)
 			}
@@ -81,11 +82,12 @@ static func add_segmented_ramp(
 	var run: float = horizontal_start.distance_to(horizontal_finish)
 	var rise: float = finish.y - start.y
 	if run < 0.2:
+		var low_y: float = minf(start.y, finish.y)
 		var top_y: float = maxf(start.y, finish.y)
 		var fallback_size_y: float = floor_thickness
 		var fallback_center_y: float = top_y - floor_thickness * 0.5
 		if block_variant:
-			fallback_size_y = maxf(top_y + floor_thickness, floor_thickness)
+			fallback_size_y = maxf(top_y - low_y + floor_thickness, floor_thickness)
 			fallback_center_y = top_y - fallback_size_y * 0.5
 		RoomLabsGeneratorBoxes.add_solid_box(
 			geom_root,
@@ -143,8 +145,10 @@ static func add_segmented_ramp(
 	if !block_variant:
 		return
 
-	var support_height: float = maxf(maxf(start.y, finish.y), floor_thickness)
-	var support_center: Vector3 = Vector3(ramp_midpoint.x, support_height * 0.5 - floor_thickness * 0.25, ramp_midpoint.z)
+	var low_support_y: float = minf(start.y, finish.y) - floor_thickness * 0.25
+	var high_support_y: float = maxf(start.y, finish.y) - floor_thickness * 0.25
+	var support_height: float = maxf(high_support_y - low_support_y, floor_thickness)
+	var support_center: Vector3 = Vector3(ramp_midpoint.x, (low_support_y + high_support_y) * 0.5, ramp_midpoint.z)
 	RoomLabsGeneratorBoxes.add_oriented_box(
 		geom_root,
 		"%s_support" % base_name,
@@ -190,9 +194,10 @@ static func __try_add_room_door_bridge(
 	var dir_b_chosen: Vector2i = opening_b["dir"]
 	var bottom_a: float = opening_a["door_bottom"]
 	var bottom_b: float = opening_b["door_bottom"]
-	var bridge_y: float = minf(bottom_a, bottom_b)
-	if bridge_y < door_bridge_min_height:
+	var bridge_local_y: float = minf(bottom_a, bottom_b)
+	if bridge_local_y < door_bridge_min_height:
 		return []
+	var bridge_world_y: float = room.center.y + bridge_local_y
 
 	var runs_x: bool = abs(dir_a_chosen.x) > 0
 	var bridge_length: float = (
@@ -212,7 +217,7 @@ static func __try_add_room_door_bridge(
 		geom_root,
 		"door_bridge",
 		bridge_size,
-		room.center + Vector3(0.0, bridge_y - floor_thickness * 0.5, 0.0),
+		Vector3(room.center.x, bridge_world_y - floor_thickness * 0.5, room.center.z),
 		RoomLabsGeneratorMaterials.mat_trim
 	)
 
@@ -220,7 +225,7 @@ static func __try_add_room_door_bridge(
 		var dir_link: Vector2i = opening_link["dir"]
 		var door_bottom_link: float = opening_link["door_bottom"]
 		var door_point: Vector3 = __door_inside_anchor(room, dir_link, door_bottom_link, wall_thickness, 0.7, 0.0)
-		var bridge_point: Vector3 = Vector3(door_point.x, bridge_y, door_point.z)
+		var bridge_point: Vector3 = Vector3(door_point.x, bridge_world_y, door_point.z)
 		if bridge_point.distance_to(door_point) >= 0.2:
 			add_segmented_ramp(
 				geom_root,
@@ -238,10 +243,10 @@ static func __try_add_room_door_bridge(
 		if runs_x:
 			var sign_z: float = -1.0 if rng.randf() < 0.5 else 1.0
 			var top_x: float = rng.randf_range(-bridge_length * 0.25, bridge_length * 0.25)
-			var top_point_x: Vector3 = room.center + Vector3(top_x, bridge_y, sign_z * bridge_width * 0.35)
-			var run_z: float = clampf(bridge_y * 2.0 + rng.randf_range(0.4, 1.8), 2.0, room.depth * 0.36)
+			var top_point_x: Vector3 = room.center + Vector3(top_x, bridge_local_y, sign_z * bridge_width * 0.35)
+			var run_z: float = clampf(bridge_local_y * 2.0 + rng.randf_range(0.4, 1.8), 2.0, room.depth * 0.36)
 			var base_point_x: Vector3 = top_point_x + Vector3(0.0, 0.0, sign_z * run_z)
-			base_point_x.y = 0.0
+			base_point_x.y = room.center.y
 			base_point_x = __clamp_point_inside_room(room, base_point_x, 0.5)
 			add_segmented_ramp(
 				geom_root,
@@ -258,10 +263,10 @@ static func __try_add_room_door_bridge(
 
 		var sign_x: float = -1.0 if rng.randf() < 0.5 else 1.0
 		var top_z: float = rng.randf_range(-bridge_length * 0.25, bridge_length * 0.25)
-		var top_point_z: Vector3 = room.center + Vector3(sign_x * bridge_width * 0.35, bridge_y, top_z)
-		var run_x: float = clampf(bridge_y * 2.0 + rng.randf_range(0.4, 1.8), 2.0, room.width * 0.36)
+		var top_point_z: Vector3 = room.center + Vector3(sign_x * bridge_width * 0.35, bridge_local_y, top_z)
+		var run_x: float = clampf(bridge_local_y * 2.0 + rng.randf_range(0.4, 1.8), 2.0, room.width * 0.36)
 		var base_point_z: Vector3 = top_point_z + Vector3(sign_x * run_x, 0.0, 0.0)
-		base_point_z.y = 0.0
+		base_point_z.y = room.center.y
 		base_point_z = __clamp_point_inside_room(room, base_point_z, 0.5)
 		add_segmented_ramp(
 			geom_root,
@@ -356,6 +361,7 @@ static func __build_wall_strip_adaptor(
 ) -> void:
 	var dir: Vector2i = opening["dir"]
 	var door_bottom: float = opening["door_bottom"]
+	var door_world_y: float = opening.get("door_world_y", room.center.y + door_bottom)
 	var wall_length: float = opening["wall_length"]
 	var door_width: float = opening["door_width"]
 	var inward: Vector3 = __door_inward_axis(dir)
@@ -392,7 +398,8 @@ static func __build_wall_strip_adaptor(
 		along_is_x,
 		span_along,
 		platform_depth,
-		door_bottom,
+		room.center.y,
+		door_world_y,
 		floor_thickness,
 		block_variant
 	)
@@ -411,7 +418,7 @@ static func __build_wall_strip_adaptor(
 			platform_center
 			+ along * top_offset
 			+ inward * (platform_depth * 0.35)
-			+ Vector3(0.0, door_bottom, 0.0)
+			+ Vector3(0.0, door_world_y - platform_center.y, 0.0)
 		)
 		var run_length: float = clampf(
 			door_bottom * rng.randf_range(1.8, 2.6),
@@ -433,7 +440,7 @@ static func __build_wall_strip_adaptor(
 		var frontal_top: Vector3 = (
 			platform_center
 			+ inward * (platform_depth * 0.5 - 0.15)
-			+ Vector3(0.0, door_bottom, 0.0)
+			+ Vector3(0.0, door_world_y - platform_center.y, 0.0)
 		)
 		__add_adaptor_ramp(
 			geom_root,
@@ -458,6 +465,7 @@ static func __build_door_step_adaptor(
 ) -> void:
 	var dir: Vector2i = opening["dir"]
 	var door_bottom: float = opening["door_bottom"]
+	var door_world_y: float = opening.get("door_world_y", room.center.y + door_bottom)
 	var wall_length: float = opening["wall_length"]
 	var door_width: float = opening["door_width"]
 	var inward: Vector3 = __door_inward_axis(dir)
@@ -478,7 +486,8 @@ static func __build_door_step_adaptor(
 		along_is_x,
 		step_span,
 		step_depth,
-		door_bottom,
+		room.center.y,
+		door_world_y,
 		floor_thickness,
 		block_variant
 	)
@@ -487,7 +496,7 @@ static func __build_door_step_adaptor(
 		var frontal_top: Vector3 = (
 			step_center
 			+ inward * (step_depth * 0.5 - 0.1)
-			+ Vector3(0.0, door_bottom, 0.0)
+			+ Vector3(0.0, door_world_y - step_center.y, 0.0)
 		)
 		__add_adaptor_ramp(
 			geom_root,
@@ -510,7 +519,7 @@ static func __build_door_step_adaptor(
 			step_center
 			+ along * (ramp_sign * maxf(step_span * 0.5 - 0.28, 0.1))
 			+ inward * (step_depth * 0.22)
-			+ Vector3(0.0, door_bottom, 0.0)
+			+ Vector3(0.0, door_world_y - step_center.y, 0.0)
 		)
 		__add_adaptor_ramp(
 			geom_root,
@@ -530,7 +539,8 @@ static func __add_elevated_platform(
 	along_is_x: bool,
 	span_along: float,
 	span_inward: float,
-	top_y: float,
+	floor_y: float,
+	top_world_y: float,
 	floor_thickness: float,
 	block_variant: bool
 ) -> void:
@@ -543,19 +553,20 @@ static func __add_elevated_platform(
 		geom_root,
 		base_name,
 		slab_size,
-		Vector3(center.x, top_y - floor_thickness * 0.5, center.z),
+		Vector3(center.x, top_world_y - floor_thickness * 0.5, center.z),
 		RoomLabsGeneratorMaterials.mat_trim
 	)
-	if !block_variant or top_y <= 0.08:
+	var elevation: float = top_world_y - floor_y
+	if !block_variant or elevation <= 0.08:
 		return
 
 	var support_size: Vector3 = slab_size
-	support_size.y = maxf(top_y - floor_thickness, 0.05)
+	support_size.y = maxf(elevation - floor_thickness, 0.05)
 	RoomLabsGeneratorBoxes.add_solid_box(
 		geom_root,
 		"%s_support" % base_name,
 		support_size,
-		Vector3(center.x, support_size.y * 0.5, center.z),
+		Vector3(center.x, floor_y + support_size.y * 0.5, center.z),
 		RoomLabsGeneratorMaterials.mat_cover
 	)
 
@@ -574,7 +585,7 @@ static func __add_adaptor_ramp(
 		return
 	horizontal_dir = horizontal_dir.normalized()
 	var base_point: Vector3 = top_point + horizontal_dir * desired_run
-	base_point.y = 0.0
+	base_point.y = room.center.y
 	base_point = __clamp_point_inside_room(room, base_point, 0.55)
 
 	var horizontal_span: float = Vector2(base_point.x - top_point.x, base_point.z - top_point.z).length()
