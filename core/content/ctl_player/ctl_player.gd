@@ -4,6 +4,7 @@ class_name CtlPlayer
 signal inventory_changed(item_ids: Array[StringName])
 
 @onready var __hand: Node3D = $Body/Head/Camera3D/Hand
+@onready var __hud: Control = $Hud
 @onready var __item_log: Label = $Hud/ItemLog
 @onready var __ammo: Label = $Hud/Ammo
 @onready var __hp: Label = $Hud/Hp
@@ -34,6 +35,10 @@ const __ACTION_MOVEFORWARD: StringName = &"move_forward"
 const __ACTION_MOVEBACKWARD: StringName = &"move_backward"
 const __ACTION_JUMP: StringName = &"move_jump"
 const __ACTION_TOGGLEMOUSE: StringName = &"move_toggle_mouse"
+const __ITEM_LOG_LINE_LIFETIME: float = 3.0
+const __DEFAULT_STUB_HP: int = 100
+const __DEFAULT_STUB_AMMO_LOADED: int = 12
+const __DEFAULT_STUB_AMMO_STORED: int = 200
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -46,14 +51,32 @@ var __yaw: float = 0.0
 var __pitch: float = 0.0
 var __look_accum: Vector2 = Vector2.ZERO
 var __inventory_item_ids: Array[StringName] = []
+var __item_log_lines: Array[String] = []
+var __item_log_countdown: float = -1.0
+var __flash_tween: Tween = null
+var __view_model_item_id: StringName = &""
+var __view_model_instance: Node = null
+var __hp_stub: int = __DEFAULT_STUB_HP
+var __ammo_loaded_stub: int = 0
+var __ammo_stored_stub: int = 0
 
 func _ready() -> void:
+	__setup_hud_nodes()
 	__apply_local_camera_state()
 	__apply_view()
+	__refresh_hud_values()
+	__refresh_item_log()
+	__refresh_view_model()
+
+func _process(delta: float) -> void:
+	__tick_item_log(delta)
 
 func _exit_tree() -> void:
 	if __is_local and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if __view_model_instance:
+		__view_model_instance.queue_free()
+		__view_model_instance = null
 
 func _unhandled_input(event: InputEvent) -> void:
 	if !__check_local_active():
@@ -77,7 +100,9 @@ func controller_set_pawn(pawn: Node3D) -> void:
 func controller_set_inventory_ids(item_ids: Array[StringName]) -> void:
 	if __inventory_item_ids == item_ids:
 		return
+	var previous: Array[StringName] = __inventory_item_ids.duplicate()
 	__inventory_item_ids = item_ids.duplicate()
+	__on_inventory_changed(previous, __inventory_item_ids)
 	inventory_changed.emit(__inventory_item_ids.duplicate())
 
 func controller_get_inventory_ids() -> Array[StringName]:
@@ -180,8 +205,116 @@ func __check_local_active() -> bool:
 func __apply_local_camera_state() -> void:
 	var is_local_active: bool = __check_local_active()
 	__camera.current = is_local_active
+	__hand.visible = is_local_active
+	__hud.visible = __is_local
 	if is_local_active:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func __setup_hud_nodes() -> void:
+	__flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	__flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	__flash.visible = false
+
+func __on_inventory_changed(previous: Array[StringName], current: Array[StringName]) -> void:
+	for item_id: StringName in current:
+		if previous.has(item_id):
+			continue
+		__on_item_added(item_id)
+	__refresh_view_model()
+
+func __on_item_added(item_id: StringName) -> void:
+	var content: GsomModContent = GsomModapi.content_by_id(item_id)
+	var item_name: String = String(item_id)
+	if content:
+		if content.ui_title.strip_edges() != "":
+			item_name = content.ui_title
+		elif content.kind != &"":
+			item_name = String(content.kind)
+		if content.kind == &"weapon":
+			__ammo_loaded_stub = __DEFAULT_STUB_AMMO_LOADED
+			__ammo_stored_stub = __DEFAULT_STUB_AMMO_STORED
+			__refresh_hud_values()
+	__push_item_log("Picked up: %s" % item_name)
+	__play_pickup_flash()
+
+func __refresh_view_model() -> void:
+	var desired_item_id: StringName = &""
+	if !__inventory_item_ids.is_empty():
+		desired_item_id = __inventory_item_ids[__inventory_item_ids.size() - 1]
+	if desired_item_id == __view_model_item_id:
+		return
+
+	__view_model_item_id = desired_item_id
+	if __view_model_instance:
+		__view_model_instance.queue_free()
+		__view_model_instance = null
+
+	if desired_item_id == &"":
+		return
+
+	var content: GsomModContent = GsomModapi.content_by_id(desired_item_id)
+	if !content or content.path_scene == &"":
+		return
+	var scene: PackedScene = load(content.path_scene) as PackedScene
+	if !scene:
+		return
+	var instance: Node = scene.instantiate()
+	__hand.add_child(instance)
+	__view_model_instance = instance
+	if instance is Node3D:
+		var as_3d: Node3D = instance as Node3D
+		as_3d.transform = Transform3D.IDENTITY
+
+func __push_item_log(line: String) -> void:
+	if line.strip_edges() == "":
+		return
+	__item_log_lines.append(line)
+	if __item_log_lines.size() == 1:
+		__item_log_countdown = __ITEM_LOG_LINE_LIFETIME
+	__refresh_item_log()
+
+func __tick_item_log(delta: float) -> void:
+	if __item_log_lines.is_empty():
+		__item_log_countdown = -1.0
+		return
+
+	if __item_log_countdown < 0.0:
+		__item_log_countdown = __ITEM_LOG_LINE_LIFETIME
+	__item_log_countdown -= delta
+	if __item_log_countdown > 0.0:
+		return
+
+	__item_log_lines.remove_at(0)
+	if __item_log_lines.is_empty():
+		__item_log_countdown = -1.0
+	else:
+		__item_log_countdown = __ITEM_LOG_LINE_LIFETIME
+	__refresh_item_log()
+
+func __refresh_item_log() -> void:
+	if __item_log_lines.is_empty():
+		__item_log.hide()
+		__item_log.text = ""
+		return
+	__item_log.show()
+	__item_log.text = "\n".join(__item_log_lines)
+
+func __refresh_hud_values() -> void:
+	__hp.text = "%d" % [maxi(0, __hp_stub)]
+	__ammo.text = "%d | %d" % [maxi(0, __ammo_loaded_stub), maxi(0, __ammo_stored_stub)]
+
+func __play_pickup_flash() -> void:
+	if __flash_tween:
+		__flash_tween.kill()
+	__flash.show()
+	__flash.modulate = Color(0.7, 1.0, 0.7, 0.0)
+	__flash_tween = create_tween()
+	__flash_tween.set_trans(Tween.TRANS_SINE)
+	__flash_tween.tween_property(__flash, "modulate", Color(0.7, 1.0, 0.7, 0.3), 0.08)
+	__flash_tween.tween_property(__flash, "modulate", Color(0.7, 1.0, 0.7, 0.0), 0.18)
+	__flash_tween.finished.connect(func() -> void:
+		__flash.hide()
+	)

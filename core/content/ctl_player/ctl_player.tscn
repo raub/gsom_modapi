@@ -69,6 +69,7 @@ theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 56
 
 [node name="ItemLog" type="Label" parent="Hud"]
+visible = false
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 23.0
