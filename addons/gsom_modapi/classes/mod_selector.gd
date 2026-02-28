@@ -59,6 +59,39 @@ func get_raw() -> Dictionary[GsomModQueryBase, float]:
 	__raw_cache = result
 	return __raw_cache.duplicate()
 
+## Picks a single query from this selector using normalized weights.
+## Returns `null` when there are no available queries.
+func pick_one_query(rng: RandomNumberGenerator = null) -> GsomModQueryBase:
+	var normalized: Dictionary[GsomModQueryBase, float] = get_normalized()
+	if !normalized.size():
+		return null
+
+	var roll: float = rng.randf() if rng else randf()
+	var sum: float = 0.0
+	var last_query: GsomModQueryBase = null
+
+	for query: GsomModQueryBase in normalized:
+		var weight: float = maxf(0.0, normalized[query])
+		if weight <= 0.0:
+			continue
+		last_query = query
+		sum += weight
+		if roll <= sum:
+			return query
+
+	return last_query
+
+## Picks one query using normalized weights, then resolves its first matched content ID.
+## Returns empty StringName when no query/content is available.
+func pick_one_id(rng: RandomNumberGenerator = null) -> StringName:
+	var query: GsomModQueryBase = pick_one_query(rng)
+	if query == null:
+		return &""
+	var matched: Array[GsomModContent] = GsomModapi.content_by_query(query)
+	if matched.is_empty():
+		return &""
+	return matched[0].id
+
 func __store_query_additive(
 	inout_result: Dictionary[GsomModQueryBase, float],
 	query: GsomModQueryBase,
@@ -73,7 +106,7 @@ func __get_raw_impl(
 	inout_result: Dictionary[GsomModQueryBase, float],
 	inout_visited: Dictionary[GsomModSelector, bool],
 ) -> void:
-	if inout_visited[self]:
+	if inout_visited.has(self):
 		return
 	
 	inout_visited[self] = true

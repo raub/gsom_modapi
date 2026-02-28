@@ -65,6 +65,7 @@ func __spawn_game_start() -> void:
 		push_error("Dungeon mode has no room content with required tags.")
 	else:
 		net._sv_spawn(__sv_room_content_id, IGsomNetwork.SpawnLayer.WORLD)
+		__sv_spawn_items_from_selectors.call_deferred()
 	
 	if __sv_controller_content_id == &"":
 		push_error("Dungeon mode has no player controller content with required tags.")
@@ -76,6 +77,21 @@ func __spawn_game_start() -> void:
 	var peers: Array[IGsomPeer] = net._get_peers_connected()
 	for peer: IGsomPeer in peers:
 		_sv_peer_join(peer)
+
+func __sv_spawn_items_from_selectors() -> void:
+	var selectors: Array[GsomModSpawnSelector] = GsomModSpawnSelector.find_all(get_tree())
+	for selector_node: GsomModSpawnSelector in selectors:
+		var content_id_to_spawn: StringName = selector_node.pick_content_id()
+		if content_id_to_spawn == &"":
+			continue
+		prints("spawning", content_id_to_spawn, selector_node.global_transform.origin)
+		net._sv_spawn(
+			content_id_to_spawn,
+			IGsomNetwork.SpawnLayer.WORLD,
+			{
+				"xf": selector_node.global_transform,
+			},
+		)
 
 func __sv_player_spawn_transform(slot_index: int) -> Transform3D:
 	var xf: Transform3D = Transform3D.IDENTITY

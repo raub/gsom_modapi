@@ -50,10 +50,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 func get_selector() -> GsomModSelector:
 	return selector
 
-func get_content_ids() -> Array[StringName]:
+func pick_content_id(rng: RandomNumberGenerator = null) -> StringName:
 	if selector == null:
-		return []
-	return GsomModapi.traverse_selector(selector)
+		return &""
+	return selector.pick_one_id(rng)
 
 static func get_group_name() -> StringName:
 	return GROUP_NAME

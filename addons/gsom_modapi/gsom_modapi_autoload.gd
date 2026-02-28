@@ -51,7 +51,7 @@ func content_by_key(key: StringName) -> GsomModContent:
 func content_by_key_all(key: StringName) -> Array[GsomModContent]:
 	return ModRegistry.get_by_key_all(key)
 
-func content_by_query(query: GsomModQueryFilter) -> Array[GsomModContent]:
+func content_by_query(query: GsomModQueryBase) -> Array[GsomModContent]:
 	return ModRegistry.get_by_query(query)
 
 func content_by_mod(mod: StringName) -> Array[GsomModContent]:
