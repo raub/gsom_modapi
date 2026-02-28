@@ -47,6 +47,7 @@ func _mod_init() -> void:
 	var wpn_pistol: GsomModContentWeapon = GsomModContentWeapon.new()
 	wpn_pistol.add_tags([&"core", &"weapon", &"pistol"])
 	wpn_pistol.path_scene = &"res://core/content/wpn_pistol/wpn_pistol.tscn"
+	wpn_pistol.path_replicator = &"res://core/content/wpn_pistol/replicator.gd"
 
 	GsomModapi.register(mode_dungeon)
 	GsomModapi.register(room_labs)

@@ -61,6 +61,7 @@ func spawn(
 	ent.instigator = instigator
 	instance.add_child(ent)
 	
+	entities_by_layer[layer][net_id] = ent
 	entities_by_id[net_id] = ent
 	
 	return ent
@@ -71,6 +72,7 @@ func despawn(net_id: int) -> void:
 	var ent: IGsomEntity = entities_by_id[net_id]
 	ent.get_parent().queue_free()
 	
+	entities_by_layer[ent.layer].erase(net_id)
 	entities_by_id.erase(net_id)
 
 func clear() -> void:
