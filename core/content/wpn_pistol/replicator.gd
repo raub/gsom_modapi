@@ -5,6 +5,7 @@ const PICKUP_RADIUS_SQ: float = PICKUP_RADIUS * PICKUP_RADIUS
 const BOB_HEIGHT: float = 0.1
 const BOB_SPEED: float = 2.2
 const SPIN_SPEED: float = 1.8
+const __ComponentWeaponPistol = preload("res://core/content/wpn_pistol/component_weapon.gd")
 
 var __collected: bool = false
 var __base_origin: Vector3 = Vector3.ZERO
@@ -109,6 +110,8 @@ func __send_give_item_event(pawn_net_id: int) -> void:
 	ev.data = {
 		"item_id": content_id,
 		"item_net_id": net_id,
+		"ammo_loaded": __ComponentWeaponPistol.CLIP_SIZE,
+		"ammo_stored": __ComponentWeaponPistol.RESERVE_AMMO,
 	}
 	net._cl_send_event(pawn_net_id, ev)
 

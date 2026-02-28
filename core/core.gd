@@ -9,6 +9,8 @@ const __ActionMoveForward: StringName = &"move_forward"
 const __ActionMoveBackward: StringName = &"move_backward"
 const __ActionJump: StringName = &"move_jump"
 const __ActionToggleMouse: StringName = &"move_toggle_mouse"
+const __ActionShootPrimary: StringName = &"shoot_primary"
+const __ActionShootSecondary: StringName = &"shoot_secondary"
 
 var __menu: UiMenu = null
 var __svc_network: GsomNetworkImpl = null
@@ -137,6 +139,8 @@ func __ensure_runtime_input_actions() -> void:
 	__ensure_input_action_keys(__ActionMoveBackward, [KEY_S, KEY_DOWN])
 	__ensure_input_action_keys(__ActionJump, [KEY_SPACE])
 	__ensure_input_action_keys(__ActionToggleMouse, [KEY_ESCAPE])
+	__ensure_input_action_mouse_button(__ActionShootPrimary, MOUSE_BUTTON_LEFT)
+	__ensure_input_action_mouse_button(__ActionShootSecondary, MOUSE_BUTTON_RIGHT)
 
 func __ensure_input_action_keys(action: StringName, keys: Array[Key]) -> void:
 	if !InputMap.has_action(action):
@@ -148,3 +152,13 @@ func __ensure_input_action_keys(action: StringName, keys: Array[Key]) -> void:
 		var key_event: InputEventKey = InputEventKey.new()
 		key_event.physical_keycode = keycode
 		InputMap.action_add_event(action, key_event)
+
+func __ensure_input_action_mouse_button(action: StringName, button: MouseButton) -> void:
+	if !InputMap.has_action(action):
+		InputMap.add_action(action)
+	var existing_events: Array[InputEvent] = InputMap.action_get_events(action)
+	if !existing_events.is_empty():
+		return
+	var button_event: InputEventMouseButton = InputEventMouseButton.new()
+	button_event.button_index = button
+	InputMap.action_add_event(action, button_event)

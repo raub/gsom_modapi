@@ -1,7 +1,2 @@
 extends Node3D
-
-func _ready() -> void:
-	pass
-
-func _process(_delta: float) -> void:
-	pass
+class_name WpnPistol

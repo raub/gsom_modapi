@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://car10dtodxtwa"]
+[gd_scene load_steps=5 format=3 uid="uid://car10dtodxtwa"]
 
 [ext_resource type="Script" uid="uid://bytmtfwaobae1" path="res://core/content/wpn_pistol/wpn_pistol.gd" id="1_cao3j"]
+[ext_resource type="Script" uid="uid://cg8axgppyf401" path="res://core/content/wpn_pistol/component_weapon.gd" id="2_8d7mh"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q4mp5"]
 albedo_color = Color(0.24, 0.24, 0.24, 1)
@@ -14,6 +15,9 @@ size = Vector3(0.05, 0.05, 0.2)
 
 [node name="WpnPistol" type="Node3D"]
 script = ExtResource("1_cao3j")
+
+[node name="WeaponLogic" type="Node" parent="."]
+script = ExtResource("2_8d7mh")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07960445, -0.06462212)

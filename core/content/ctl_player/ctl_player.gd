@@ -18,6 +18,9 @@ class PlayerInput extends RefCounted:
 	var move: Vector2 = Vector2.ZERO
 	var jump: bool = false
 	var yaw: float = 0.0
+	var pitch: float = 0.0
+	var shoot_primary: bool = false
+	var shoot_secondary: bool = false
 
 class PlayerActions extends RefCounted:
 	var yaw: float = 0.0
@@ -35,8 +38,11 @@ const __ACTION_MOVEFORWARD: StringName = &"move_forward"
 const __ACTION_MOVEBACKWARD: StringName = &"move_backward"
 const __ACTION_JUMP: StringName = &"move_jump"
 const __ACTION_TOGGLEMOUSE: StringName = &"move_toggle_mouse"
+const __ACTION_SHOOT_PRIMARY: StringName = &"shoot_primary"
+const __ACTION_SHOOT_SECONDARY: StringName = &"shoot_secondary"
 const __ITEM_LOG_LINE_LIFETIME: float = 3.0
 const __DEFAULT_STUB_HP: int = 100
+const __WeaponComponentScript: Script = preload("res://core/components/component_weapon.gd")
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -54,6 +60,7 @@ var __item_log_countdown: float = -1.0
 var __flash_tween: Tween = null
 var __view_model_item_id: StringName = &""
 var __view_model_instance: Node = null
+var __view_model_weapon_component: Node = null
 var __hp_value: int = __DEFAULT_STUB_HP
 var __ammo_loaded_value: int = 0
 var __ammo_stored_value: int = 0
@@ -75,6 +82,7 @@ func _exit_tree() -> void:
 	if __view_model_instance:
 		__view_model_instance.queue_free()
 		__view_model_instance = null
+	__view_model_weapon_component = null
 
 func _unhandled_input(event: InputEvent) -> void:
 	if !__check_local_active():
@@ -105,6 +113,13 @@ func controller_set_inventory_ids(item_ids: Array[StringName]) -> void:
 
 func controller_get_inventory_ids() -> Array[StringName]:
 	return __inventory_item_ids.duplicate()
+
+func controller_get_equipped_weapon_component() -> Node:
+	if !__view_model_weapon_component:
+		return null
+	if !is_instance_valid(__view_model_weapon_component):
+		return null
+	return __view_model_weapon_component
 
 func controller_set_hp(value: int) -> void:
 	var hp_next: int = maxi(0, value)
@@ -144,6 +159,9 @@ func controller_local_tick(_delta: float) -> Variant:
 		or Input.is_action_just_pressed("ui_accept")
 	)
 	input.yaw = __yaw
+	input.pitch = __pitch
+	input.shoot_primary = Input.is_action_pressed(__ACTION_SHOOT_PRIMARY)
+	input.shoot_secondary = Input.is_action_pressed(__ACTION_SHOOT_SECONDARY)
 	return input
 
 func controller_compose_actions(delta: float) -> PlayerActions:
@@ -261,6 +279,7 @@ func __refresh_view_model() -> void:
 	if __view_model_instance:
 		__view_model_instance.queue_free()
 		__view_model_instance = null
+	__view_model_weapon_component = null
 
 	if desired_item_id == &"":
 		return
@@ -274,9 +293,17 @@ func __refresh_view_model() -> void:
 	var instance: Node = scene.instantiate()
 	__hand.add_child(instance)
 	__view_model_instance = instance
+	__view_model_weapon_component = __find_weapon_component(instance)
+	
 	if instance is Node3D:
 		var as_3d: Node3D = instance as Node3D
 		as_3d.transform = Transform3D.IDENTITY
+
+func __find_weapon_component(instance: Node) -> Node:
+	for child: Node in instance.get_children():
+		if child is GsomComponentWeapon:
+			return child
+	return null
 
 func __push_item_log(line: String) -> void:
 	if line.strip_edges() == "":
