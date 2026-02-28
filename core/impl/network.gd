@@ -47,15 +47,24 @@ func _ready() -> void:
 func _cl_send_event(net_id: int, event: IGsomEntity.Event) -> void:
 	var e: NetEvent = NetEvent.new()
 	e.kind = EventKind.ENTITY
-	var ev_data: EventDataEntity = EventDataEntity.new()
-	ev_data.dest_net_id = net_id
-	ev_data.payload = event
+	e.data = {
+		"to_server": true,
+		"net_id": net_id,
+		"event": event,
+	}
 	__send_net_event(e)
 
 func _sv_send_event(net_id: int, event: IGsomEntity.Event) -> void:
 	if !check_is_host():
 		return
-	_cl_send_event(net_id, event)
+	var e: NetEvent = NetEvent.new()
+	e.kind = EventKind.ENTITY
+	e.data = {
+		"to_server": false,
+		"net_id": net_id,
+		"event": event,
+	}
+	__send_net_event(e)
 
 func _get_entity(net_id: int) -> IGsomEntity:
 	if !__svc_spawn:
@@ -175,14 +184,17 @@ func __sv_handle_events() -> void:
 		return
 	for e: NetEvent in __events_in:
 		if e.kind == EventKind.ENTITY:
-			var data: EventDataEntity = e.data
-			var ent: IGsomEntity = _get_entity(data.dest_net_id)
+			var data: Dictionary = e.data
+			if !data.get("to_server", true):
+				continue
+			var net_id: int = data.get("net_id", NET_ID_EMPTY)
+			var ent: IGsomEntity = _get_entity(net_id)
 			if !ent:
 				continue
 			var peer: IGsomPeer = _get_peer(e.identity)
 			if !peer:
 				continue
-			var payload: IGsomEntity.Event = data.payload
+			var payload: IGsomEntity.Event = data.get("event", null)
 			if !payload:
 				continue
 			ent._sv_read_event(peer, payload)

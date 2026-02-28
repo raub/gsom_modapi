@@ -1,6 +1,8 @@
 extends Node3D
 class_name CtlPlayer
 
+signal inventory_changed(item_ids: Array[StringName])
+
 ## This node captures player controls and applies the actions.
 ## In terms of Position - it follows the currently controlled pawn.
 ## For Rotation, it separately rotates "body" for YAW and "head" for PITCH.
@@ -37,6 +39,7 @@ var __pawn: Node3D = null
 var __yaw: float = 0.0
 var __pitch: float = 0.0
 var __look_accum: Vector2 = Vector2.ZERO
+var __inventory_item_ids: Array[StringName] = []
 
 func _ready() -> void:
 	__apply_local_camera_state()
@@ -64,6 +67,15 @@ func controller_set_enabled(enabled: bool) -> void:
 func controller_set_pawn(pawn: Node3D) -> void:
 	__pawn = pawn
 	__sync_to_pawn()
+
+func controller_set_inventory_ids(item_ids: Array[StringName]) -> void:
+	if __inventory_item_ids == item_ids:
+		return
+	__inventory_item_ids = item_ids.duplicate()
+	inventory_changed.emit(__inventory_item_ids.duplicate())
+
+func controller_get_inventory_ids() -> Array[StringName]:
+	return __inventory_item_ids.duplicate()
 
 func controller_local_tick(_delta: float) -> Variant:
 	if !__check_local_active():

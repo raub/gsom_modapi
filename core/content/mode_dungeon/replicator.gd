@@ -26,6 +26,24 @@ func _sv_load_start(_label: String) -> void:
 func _cl_load_complete() -> void:
 	net._cl_load_complete()
 
+func _sv_read_event(peer: IGsomPeer, e: Event) -> void:
+	if !net.check_is_host():
+		return
+	if !peer or peer._get_identity() != net.get_host_identity():
+		return
+	if !e or e.kind != &"item_picked":
+		return
+	if typeof(e.data) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = e.data
+	var item_net_id_v: Variant = data.get("item_net_id", IGsomNetwork.NET_ID_EMPTY)
+	if typeof(item_net_id_v) != TYPE_INT:
+		return
+	var item_net_id: int = item_net_id_v
+	if item_net_id == IGsomNetwork.NET_ID_EMPTY:
+		return
+	net._sv_despawn(item_net_id)
+
 func _sv_peer_join(peer: IGsomPeer) -> void:
 	if !peer:
 		return
