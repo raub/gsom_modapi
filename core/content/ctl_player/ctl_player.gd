@@ -3,6 +3,12 @@ class_name CtlPlayer
 
 signal inventory_changed(item_ids: Array[StringName])
 
+@onready var __hand: Node3D = $Body/Head/Camera3D/Hand
+@onready var __item_log: Label = $Hud/ItemLog
+@onready var __ammo: Label = $Hud/Ammo
+@onready var __hp: Label = $Hud/Hp
+@onready var __flash: ColorRect = $Hud/Flash
+
 ## This node captures player controls and applies the actions.
 ## In terms of Position - it follows the currently controlled pawn.
 ## For Rotation, it separately rotates "body" for YAW and "head" for PITCH.
