@@ -3,21 +3,20 @@ extends GsomModContentActor
 class_name GsomModContentNpc
 
 func _get_default_tags() -> Array[StringName]:
-	var base := super._get_default_tags()
+	var base: Array[StringName] = super._get_default_tags()
 	base.append_array([&"npc"])
 	return base
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	var base := super._get_default_attrs()
+	var base: Dictionary[StringName, Variant] = super._get_default_attrs()
 	base[&"faction"] = &"neutral"
-	base[&"dialogue_role"] = &"generic"
 	return base
 
 func _get_default_caps() -> Array[StringName]:
-	var base := super._get_default_caps()
+	var base: Array[StringName] = super._get_default_caps()
 	base.append_array([
-		&"non_hostile",
+		&"spawnable",
+		&"npc",
 		&"can_interact",
-		&"dialogue_npc",
 	])
 	return base

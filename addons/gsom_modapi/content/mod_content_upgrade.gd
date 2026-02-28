@@ -3,18 +3,18 @@ extends GsomModContentStatus
 class_name GsomModContentUpgrade
 
 func _get_default_tags() -> Array[StringName]:
-	var base := super._get_default_tags()
+	var base: Array[StringName] = super._get_default_tags()
 	base.append_array([&"upgrade"])
 	return base
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	var base := super._get_default_attrs()
+	var base: Dictionary[StringName, Variant] = super._get_default_attrs()
 	base[&"is_buff"] = true
-	base[&"upgrade_scope"] = base.get(&"upgrade_scope", &"run") # "run" or "meta"
+	base[&"upgrade_scope"] = &"run" # "run" or "meta"
 	return base
 
 func _get_default_caps() -> Array[StringName]:
-	var base := super._get_default_caps()
+	var base: Array[StringName] = super._get_default_caps()
 	base.append_array([
 		&"upgrade_effect",
 	])

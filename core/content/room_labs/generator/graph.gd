@@ -7,7 +7,7 @@ const RoomData = RoomLabsGeneratorRooms.RoomData
 
 class LayoutGraph:
 	var rooms_by_key: Dictionary[String, RoomData] = {}
-	var neighbors_by_key: Dictionary = {}
+	var neighbors_by_key: Dictionary[String, Array] = {}
 	var edges: Array[RoomEdge] = []
 
 static func build_layout_graph(

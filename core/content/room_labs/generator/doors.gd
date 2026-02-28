@@ -14,7 +14,7 @@ static func plan_door_openings(
 ) -> Dictionary[String, float]:
 	var door_bottom_by_side: Dictionary[String, float] = {}
 	var traversal: Array[Vector2i] = __build_generation_walk(rooms_by_key, neighbors_by_key)
-	var last_local_by_room_key: Dictionary = {}
+	var last_local_by_room_key: Dictionary[String, float] = {}
 
 	for i: int in range(maxi(traversal.size() - 1, 0)):
 		__assign_edge_door_opening(
@@ -266,7 +266,7 @@ static func __assign_edge_door_opening(
 	door_split_min_delta: float,
 	elevated_door_chance: float,
 	door_bottom_by_side: Dictionary[String, float],
-	last_local_by_room_key: Dictionary,
+	last_local_by_room_key: Dictionary[String, float],
 	a_coord: Vector2i,
 	b_coord: Vector2i
 ) -> void:

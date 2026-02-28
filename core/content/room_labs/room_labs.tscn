@@ -1,9 +1,32 @@
-[gd_scene load_steps=3 format=3 uid="uid://30ado0snbrh"]
+[gd_scene load_steps=9 format=3 uid="uid://30ado0snbrh"]
 
 [ext_resource type="Script" uid="uid://2b3f8aawe1ql" path="res://core/content/room_labs/room_labs.gd" id="1_nrwq3"]
 [ext_resource type="PackedScene" uid="uid://ce0q38wdo6p7q" path="res://core/content/room_labs/generator/lab_generator.tscn" id="2_hny0t"]
+[ext_resource type="Script" uid="uid://cvx0hf0mjdvce" path="res://addons/gsom_modapi/nodes/spawn_selector.gd" id="3_s685n"]
+[ext_resource type="Script" uid="uid://gpek0lrr7x4k" path="res://addons/gsom_modapi/classes/mod_selector.gd" id="4_vb5kb"]
+[ext_resource type="Script" uid="uid://bbvjbyjpy6ogf" path="res://addons/gsom_modapi/classes/mod_query_base.gd" id="5_3g1rx"]
+[ext_resource type="Script" uid="uid://c3pnhonwwknbl" path="res://addons/gsom_modapi/classes/mod_query_filter.gd" id="6_bgrct"]
+
+[sub_resource type="Resource" id="Resource_ohe4b"]
+script = ExtResource("6_bgrct")
+tags_all = Array[StringName]([&"weapon"])
+metadata/_custom_type_script = "uid://c3pnhonwwknbl"
+
+[sub_resource type="Resource" id="Resource_fhkmp"]
+script = ExtResource("4_vb5kb")
+table = Dictionary[ExtResource("5_3g1rx"), float]({
+SubResource("Resource_ohe4b"): 1.0
+})
+metadata/_custom_type_script = "uid://gpek0lrr7x4k"
 
 [node name="RoomLabs" type="Node3D"]
 script = ExtResource("1_nrwq3")
 
 [node name="LabGenerator" parent="." instance=ExtResource("2_hny0t")]
+corridor_target_length = 1.0
+
+[node name="GsomModSpawnSelector" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8844497, 5.8120017)
+script = ExtResource("3_s685n")
+selector = SubResource("Resource_fhkmp")
+metadata/_custom_type_script = "uid://cvx0hf0mjdvce"

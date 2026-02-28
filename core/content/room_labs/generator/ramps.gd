@@ -331,7 +331,7 @@ static func __build_single_door_adaptor(
 	if door_bottom <= 0.05:
 		return
 
-	var block_variant: bool = false
+	var block_variant: bool = door_bottom < 2.5
 	if door_bottom <= door_floor_snap_threshold + 0.2:
 		__build_door_step_adaptor(
 			geom_root,
@@ -654,7 +654,7 @@ static func __add_adaptor_ramp(
 	desired_run: float,
 	width: float,
 	floor_thickness: float,
-	block_variant: bool
+	_block_variant: bool
 ) -> bool:
 	var horizontal_dir: Vector3 = Vector3(top_to_base_direction.x, 0.0, top_to_base_direction.z)
 	if horizontal_dir.length() <= 0.01:

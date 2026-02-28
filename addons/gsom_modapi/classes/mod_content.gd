@@ -190,7 +190,7 @@ func __set_tags(v: Array[StringName]) -> void:
 
 ## [optional] Redefine this in subclasses
 func _get_default_tags() -> Array[StringName]:
-	return __empty_array_stringname
+	return __empty_array_stringname.duplicate()
 
 # Cached value that prevents creating new objects on every get
 var __attrs_cache: Dictionary[StringName, Variant] = {}
@@ -209,7 +209,7 @@ func __set_attrs(v: Dictionary[StringName, Variant]) -> void:
 
 ## [optional] Redefine this in subclasses
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	return __empty_dict
+	return __empty_dict.duplicate(true)
 
 # Custom caps stored privately. These are on top of the default ones.
 var __caps_cache: Array[StringName] = __empty_array_stringname
@@ -228,7 +228,7 @@ func __set_caps(v: Array[StringName]) -> void:
 
 ## [optional] Redefine this in subclasses
 func _get_default_caps() -> Array[StringName]:
-	return __empty_array_stringname
+	return __empty_array_stringname.duplicate()
 
 # QoL helpers
 

@@ -3,17 +3,17 @@ extends GsomModContentItem
 class_name GsomModContentConsumable
 
 func _get_default_tags() -> Array[StringName]:
-	var base := super._get_default_tags()
+	var base: Array[StringName] = super._get_default_tags()
 	base.append_array([&"consumable"])
 	return base
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	var base := super._get_default_attrs()
-	base[&"uses"] = base.get(&"uses", 1)
+	var base: Dictionary[StringName, Variant] = super._get_default_attrs()
+	base[&"uses"] = 1
 	return base
 
 func _get_default_caps() -> Array[StringName]:
-	var base := super._get_default_caps()
+	var base: Array[StringName] = super._get_default_caps()
 	base.append_array([
 		&"usable_item",
 		&"single_use",

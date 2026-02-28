@@ -6,17 +6,20 @@ func _get_kind() -> StringName:
 	return &"item"
 
 func _get_default_tags() -> Array[StringName]:
-	return [&"item"]
+	var base: Array[StringName] = super._get_default_tags()
+	base.append_array([&"item"])
+	return base
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	return {
-		&"rarity": &"common",
-		&"value": 0,
-		&"stack_size": 1,
-	}
+	var base: Dictionary[StringName, Variant] = super._get_default_attrs()
+	base[&"rarity"] = &"common"
+	base[&"value"] = 0
+	base[&"stack_size"] = 1
+	return base
 
 func _get_default_caps() -> Array[StringName]:
-	return [
-		&"lootable",
-		&"inventory_item",
-	]
+	var base: Array[StringName] = super._get_default_caps()
+	base.append_array([
+		&"item",
+	])
+	return base

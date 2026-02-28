@@ -44,11 +44,16 @@ func _mod_init() -> void:
 	ctl_player.path_scene = &"res://core/content/ctl_player/ctl_player.tscn"
 	ctl_player.path_replicator = &"res://core/content/ctl_player/replicator.gd"
 
+	var wpn_pistol: GsomModContentWeapon = GsomModContentWeapon.new()
+	wpn_pistol.add_tags([&"core", &"weapon", &"pistol"])
+	wpn_pistol.path_scene = &"res://core/content/wpn_pistol/wpn_pistol.tscn"
+
 	GsomModapi.register(mode_dungeon)
 	GsomModapi.register(room_labs)
-	
+
 	GsomModapi.register(char_player)
 	GsomModapi.register(ctl_player)
+	GsomModapi.register(wpn_pistol)
 
 func _core_main() -> void:
 	__ensure_runtime_input_actions()

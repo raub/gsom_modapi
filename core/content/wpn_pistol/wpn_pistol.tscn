@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3 uid="uid://car10dtodxtwa"]
+
+[ext_resource type="Script" uid="uid://bytmtfwaobae1" path="res://core/content/wpn_pistol/wpn_pistol.gd" id="1_cao3j"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_q4mp5"]
+albedo_color = Color(0.24, 0.24, 0.24, 1)
+metallic = 0.36
+metallic_specular = 0.18
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_s22ma"]
+material = SubResource("StandardMaterial3D_q4mp5")
+size = Vector3(0.05, 0.05, 0.2)
+
+[node name="WpnPistol" type="Node3D"]
+script = ExtResource("1_cao3j")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07960445, -0.06462212)
+mesh = SubResource("BoxMesh_s22ma")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.19178545, -0.98143685, 0, 0.98143685, 0.19178545, 0, 0.027561262, -0.006436877)
+mesh = SubResource("BoxMesh_s22ma")

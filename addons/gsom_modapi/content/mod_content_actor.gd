@@ -8,19 +8,23 @@ func _get_kind() -> StringName:
 	return &"actor"
 
 func _get_default_tags() -> Array[StringName]:
-	return [&"actor"]
+	var base: Array[StringName] = super._get_default_tags()
+	base.append_array([&"actor"])
+	return base
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	return {
-		&"base_hp": 100.0,
-		&"base_speed": 10.0,
-		&"base_accel": 10.0,
-	}
+	var base: Dictionary[StringName, Variant] = super._get_default_attrs()
+	base[&"base_hp"] = 100.0
+	base[&"base_speed"] = 10.0
+	base[&"base_accel"] = 10.0
+	return base
 
 func _get_default_caps() -> Array[StringName]:
-	return [
+	var base: Array[StringName] = super._get_default_caps()
+	base.append_array([
 		&"health",
 		&"transform",
 		&"velocity",
 		&"actor",
-	]
+	])
+	return base

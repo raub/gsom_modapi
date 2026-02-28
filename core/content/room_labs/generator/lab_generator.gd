@@ -26,7 +26,7 @@ class_name RoomLabsGenerator
 @export_range(0.0, 12.0, 0.25) var room_floor_variation: float = 3.0
 @export_range(0.0, 8.0, 0.1) var adjacent_room_floor_min_delta: float = 1.2
 @export_range(4.0, 12.0, 0.25) var corridor_width: float = 6.0
-@export_range(0.0, 6.0, 0.25) var corridor_target_length: float = 1.0
+@export_range(0.0, 6.0, 0.25) var corridor_target_length: float = 2.0
 @export_range(0.0, 2.0, 0.05) var room_cell_margin: float = 0.5
 @export_range(2.2, 4.5, 0.1) var doorway_height: float = 3.2
 @export_range(0.2, 1.0, 0.05) var wall_thickness: float = 0.5
@@ -43,7 +43,7 @@ const RoomData = RoomLabsGeneratorRooms.RoomData
 
 var __rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var __rooms_by_key: Dictionary[String, RoomData] = {}
-var __neighbors_by_key: Dictionary = {}
+var __neighbors_by_key: Dictionary[String, Array] = {}
 var __edges: Array[RoomEdge] = []
 var __door_bottom_by_side: Dictionary[String, float] = {}
 
@@ -136,11 +136,12 @@ func __spawn_generated_geometry() -> void:
 	var room_keys: Array = __rooms_by_key.keys()
 	for room_key: String in room_keys:
 		var room: RoomData = __rooms_by_key[room_key]
+		var has_neighbors: bool = __neighbors_by_key.has(room_key)
 		RoomLabsGeneratorRooms.build_room(
 			geom_root,
 			light_root,
 			room,
-			__neighbors_by_key.get(room_key, []),
+			__neighbors_by_key[room_key] if has_neighbors else [],
 			__rng,
 			corridor_width,
 			doorway_height,

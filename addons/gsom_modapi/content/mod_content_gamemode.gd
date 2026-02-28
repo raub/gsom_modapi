@@ -2,23 +2,23 @@
 extends GsomModContent
 class_name GsomModContentGamemode
 
-const __gamemode_tags: Array[StringName] = [&"gamemode"]
-const __gamemode_attrs: Dictionary[StringName, Variant] = {
-	&"max_players": 4,
-	&"has_coop": true,
-}
-const __gamemode_caps: Array[StringName] = [
-	&"gamemode",
-]
-
 func _get_kind() -> StringName:
 	return &"gamemode"
 
 func _get_default_tags() -> Array[StringName]:
-	return __gamemode_tags
+	var base: Array[StringName] = super._get_default_tags()
+	base.append_array([&"gamemode"])
+	return base
 
 func _get_default_attrs() -> Dictionary[StringName, Variant]:
-	return __gamemode_attrs
+	var base: Dictionary[StringName, Variant] = super._get_default_attrs()
+	base[&"max_players"] = 4
+	base[&"has_coop"] = true
+	return base
 
 func _get_default_caps() -> Array[StringName]:
-	return __gamemode_caps
+	var base: Array[StringName] = super._get_default_caps()
+	base.append_array([
+		&"gamemode",
+	])
+	return base
