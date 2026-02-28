@@ -48,6 +48,7 @@ func weapon_fire_tick(
 		return ammo_loaded
 
 	__next_attack_time_s = now_s + __get_fire_interval(fire_mode)
+	__play_muzzle_flash()
 	__fire_hitscan(owner_replicator, pawn, fire_mode)
 	return maxi(0, ammo_loaded - 1)
 
@@ -68,6 +69,14 @@ func __get_spread(mode: FireMode) -> float:
 	if mode == FireMode.PRIMARY:
 		return PRIMARY_SPREAD
 	return 0.0
+
+func __play_muzzle_flash() -> void:
+	var weapon_node: Node = get_parent()
+	if !weapon_node:
+		return
+	if !weapon_node.has_method("weapon_play_muzzle_flash"):
+		return
+	weapon_node.call("weapon_play_muzzle_flash")
 
 func __fire_hitscan(
 	owner_replicator: IGsomPawn,
