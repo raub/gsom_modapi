@@ -42,8 +42,8 @@ func _sv_tick(_dt: float) -> void:
 			continue
 		__set_collected(true)
 		__broadcast_collected_event()
-		__send_give_item_event(pawn.player_id)
-		__send_item_picked_event_to_gamemode(pawn.player_id)
+		__send_give_item_event(pawn.net_id)
+		__send_item_picked_event_to_gamemode(pawn.net_id)
 		return
 
 func _cl_tick(dt: float) -> void:
@@ -101,8 +101,8 @@ func __apply_collected_state() -> void:
 		return
 	weapon_node.visible = !__collected
 
-func __send_give_item_event(player_net_id: int) -> void:
-	if player_net_id == IGsomNetwork.NET_ID_EMPTY:
+func __send_give_item_event(pawn_net_id: int) -> void:
+	if pawn_net_id == IGsomNetwork.NET_ID_EMPTY:
 		return
 	var ev: Event = Event.new()
 	ev.kind = &"give_item"
@@ -110,9 +110,9 @@ func __send_give_item_event(player_net_id: int) -> void:
 		"item_id": content_id,
 		"item_net_id": net_id,
 	}
-	net._cl_send_event(player_net_id, ev)
+	net._cl_send_event(pawn_net_id, ev)
 
-func __send_item_picked_event_to_gamemode(player_net_id: int) -> void:
+func __send_item_picked_event_to_gamemode(pawn_net_id: int) -> void:
 	var game_mode: IGsomGameMode = net._get_game_mode()
 	if !game_mode:
 		return
@@ -121,6 +121,6 @@ func __send_item_picked_event_to_gamemode(player_net_id: int) -> void:
 	ev.data = {
 		"item_id": content_id,
 		"item_net_id": net_id,
-		"picker_player_net_id": player_net_id,
+		"picker_pawn_net_id": pawn_net_id,
 	}
 	net._cl_send_event(game_mode.net_id, ev)

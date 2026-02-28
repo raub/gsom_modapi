@@ -37,8 +37,6 @@ const __ACTION_JUMP: StringName = &"move_jump"
 const __ACTION_TOGGLEMOUSE: StringName = &"move_toggle_mouse"
 const __ITEM_LOG_LINE_LIFETIME: float = 3.0
 const __DEFAULT_STUB_HP: int = 100
-const __DEFAULT_STUB_AMMO_LOADED: int = 12
-const __DEFAULT_STUB_AMMO_STORED: int = 200
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -56,9 +54,9 @@ var __item_log_countdown: float = -1.0
 var __flash_tween: Tween = null
 var __view_model_item_id: StringName = &""
 var __view_model_instance: Node = null
-var __hp_stub: int = __DEFAULT_STUB_HP
-var __ammo_loaded_stub: int = 0
-var __ammo_stored_stub: int = 0
+var __hp_value: int = __DEFAULT_STUB_HP
+var __ammo_loaded_value: int = 0
+var __ammo_stored_value: int = 0
 
 func _ready() -> void:
 	__setup_hud_nodes()
@@ -107,6 +105,22 @@ func controller_set_inventory_ids(item_ids: Array[StringName]) -> void:
 
 func controller_get_inventory_ids() -> Array[StringName]:
 	return __inventory_item_ids.duplicate()
+
+func controller_set_hp(value: int) -> void:
+	var hp_next: int = maxi(0, value)
+	if __hp_value == hp_next:
+		return
+	__hp_value = hp_next
+	__refresh_hud_values()
+
+func controller_set_ammo(loaded: int, stored: int) -> void:
+	var loaded_next: int = maxi(0, loaded)
+	var stored_next: int = maxi(0, stored)
+	if __ammo_loaded_value == loaded_next and __ammo_stored_value == stored_next:
+		return
+	__ammo_loaded_value = loaded_next
+	__ammo_stored_value = stored_next
+	__refresh_hud_values()
 
 func controller_local_tick(_delta: float) -> Variant:
 	if !__check_local_active():
@@ -233,10 +247,6 @@ func __on_item_added(item_id: StringName) -> void:
 			item_name = content.ui_title
 		elif content.kind != &"":
 			item_name = String(content.kind)
-		if content.kind == &"weapon":
-			__ammo_loaded_stub = __DEFAULT_STUB_AMMO_LOADED
-			__ammo_stored_stub = __DEFAULT_STUB_AMMO_STORED
-			__refresh_hud_values()
 	__push_item_log("Picked up: %s" % item_name)
 	__play_pickup_flash()
 
@@ -303,8 +313,8 @@ func __refresh_item_log() -> void:
 	__item_log.text = "\n".join(__item_log_lines)
 
 func __refresh_hud_values() -> void:
-	__hp.text = "%d" % [maxi(0, __hp_stub)]
-	__ammo.text = "%d | %d" % [maxi(0, __ammo_loaded_stub), maxi(0, __ammo_stored_stub)]
+	__hp.text = "%d" % [maxi(0, __hp_value)]
+	__ammo.text = "%d | %d" % [maxi(0, __ammo_loaded_value), maxi(0, __ammo_stored_value)]
 
 func __play_pickup_flash() -> void:
 	if __flash_tween:

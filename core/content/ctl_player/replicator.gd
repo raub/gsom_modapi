@@ -1,11 +1,8 @@
 extends IGsomPlayer
 
-signal inventory_changed(item_ids: Array[StringName])
-
 var pawn_id: int = IGsomNetwork.NET_ID_EMPTY
 
 var __sv_reserved: bool = false
-var __inventory_item_ids: Array[StringName] = []
 
 func _local_tick(dt: float) -> Variant:
 	var ctl: CtlPlayer = target as CtlPlayer
@@ -41,6 +38,7 @@ func _sv_tick(_dt: float) -> void:
 	if !net.check_is_host():
 		return
 	__sv_sync_pawn_link()
+	__push_pawn_status_to_controller()
 
 func _sv_apply_actions(actions: Variant) -> void:
 	if !net.check_is_host():
@@ -56,6 +54,7 @@ func _sv_apply_actions(actions: Variant) -> void:
 
 func _cl_tick(_dt: float) -> void:
 	__sync_target_pawn()
+	__push_pawn_status_to_controller()
 
 func _cl_ready() -> void:
 	if peer_identity == &"":
@@ -64,14 +63,14 @@ func _cl_ready() -> void:
 	if ctl:
 		ctl.controller_set_local(check_is_local())
 		ctl.controller_set_enabled(!__sv_reserved)
-		ctl.controller_set_inventory_ids(__inventory_item_ids)
 	__sync_target_pawn()
+	__push_pawn_status_to_controller()
 
 func _sv_ready() -> void:
 	if peer_identity == &"":
 		peer_identity = instigator
-	__push_inventory_to_controller()
 	__sync_target_pawn()
+	__push_pawn_status_to_controller()
 
 func _read_snapshot(snapshot: Variant) -> void:
 	if typeof(snapshot) != TYPE_DICTIONARY:
@@ -86,8 +85,6 @@ func _read_snapshot(snapshot: Variant) -> void:
 	var reserved_v: Variant = data.get("reserved", __sv_reserved)
 	if typeof(reserved_v) == TYPE_BOOL:
 		__sv_reserved = reserved_v
-	var inventory_v: Variant = data.get("inventory_item_ids", __inventory_item_ids)
-	__set_inventory_from_variant(inventory_v)
 	var ctl: CtlPlayer = target as CtlPlayer
 	if ctl:
 		var view: Dictionary = {}
@@ -104,26 +101,11 @@ func _write_snapshot(_lod: RelevancyLod) -> Variant:
 		"peer_identity": String(peer_identity),
 		"pawn_id": pawn_id,
 		"reserved": __sv_reserved,
-		"inventory_item_ids": __inventory_item_ids.duplicate(),
 		"view": view,
 	}
 
-func _sv_read_event(peer: IGsomPeer, e: Event) -> void:
-	if !net.check_is_host():
-		return
-	if !peer or peer._get_identity() != net.get_host_identity():
-		return
-	if !e or e.kind != &"give_item":
-		return
-	if typeof(e.data) != TYPE_DICTIONARY:
-		return
-	var data: Dictionary = e.data
-	var item_id_v: Variant = data.get("item_id", &"")
-	if typeof(item_id_v) != TYPE_STRING and typeof(item_id_v) != TYPE_STRING_NAME:
-		return
-	var item_id_s: StringName = item_id_v
-	__inventory_item_ids.append(item_id_s)
-	__emit_inventory_changed()
+func _sv_read_event(_peer: IGsomPeer, _e: Event) -> void:
+	pass
 
 func _cl_read_event(_e: Event) -> void:
 	pass
@@ -146,8 +128,10 @@ func __sync_target_pawn() -> void:
 	var pawn: IGsomPawn = _get_pawn()
 	if !pawn or pawn.target is not Node3D:
 		ctl.controller_set_pawn(null)
+		__push_pawn_status_to_controller()
 		return
 	ctl.controller_set_pawn(pawn.target as Node3D)
+	__push_pawn_status_to_controller()
 
 func _get_pawn() -> IGsomPawn:
 	if pawn_id == IGsomNetwork.NET_ID_EMPTY:
@@ -219,27 +203,47 @@ func __call_optional_reserved(entity: IGsomEntity, reserved: bool) -> void:
 	if entity and entity.has_method("_sv_set_reserved"):
 		entity.call("_sv_set_reserved", reserved)
 
-func __set_inventory_from_variant(raw: Variant) -> void:
-	if typeof(raw) != TYPE_ARRAY:
-		return
-	var item_ids: Array[StringName] = []
-	var values: Array = raw
-	for value: Variant in values:
-		if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
-			continue
-		var value_s: StringName = value
-		item_ids.append(value_s)
-	if __inventory_item_ids == item_ids:
-		return
-	__inventory_item_ids = item_ids
-	__emit_inventory_changed()
-
-func __emit_inventory_changed() -> void:
-	inventory_changed.emit(__inventory_item_ids.duplicate())
-	__push_inventory_to_controller()
-
-func __push_inventory_to_controller() -> void:
+func __push_pawn_status_to_controller() -> void:
 	var ctl: CtlPlayer = target as CtlPlayer
 	if !ctl:
 		return
-	ctl.controller_set_inventory_ids(__inventory_item_ids)
+	var pawn: IGsomPawn = _get_pawn()
+	if !pawn:
+		ctl.controller_set_inventory_ids([])
+		ctl.controller_set_hp(0)
+		ctl.controller_set_ammo(0, 0)
+		return
+
+	var inventory_ids: Array[StringName] = []
+	if pawn.has_method("get_inventory_item_ids"):
+		var inv_v: Variant = pawn.call("get_inventory_item_ids")
+		if inv_v is Array[StringName]:
+			inventory_ids = inv_v
+		elif typeof(inv_v) == TYPE_ARRAY:
+			var fallback: Array = inv_v
+			for value: Variant in fallback:
+				if typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME:
+					var value_s: StringName = value
+					inventory_ids.append(value_s)
+
+	var hp_value: int = 0
+	if pawn.has_method("get_hp"):
+		var hp_v: Variant = pawn.call("get_hp")
+		if typeof(hp_v) == TYPE_INT:
+			hp_value = hp_v
+
+	var ammo_loaded: int = 0
+	if pawn.has_method("get_ammo_loaded"):
+		var ammo_loaded_v: Variant = pawn.call("get_ammo_loaded")
+		if typeof(ammo_loaded_v) == TYPE_INT:
+			ammo_loaded = ammo_loaded_v
+
+	var ammo_stored: int = 0
+	if pawn.has_method("get_ammo_stored"):
+		var ammo_stored_v: Variant = pawn.call("get_ammo_stored")
+		if typeof(ammo_stored_v) == TYPE_INT:
+			ammo_stored = ammo_stored_v
+
+	ctl.controller_set_inventory_ids(inventory_ids)
+	ctl.controller_set_hp(hp_value)
+	ctl.controller_set_ammo(ammo_loaded, ammo_stored)
