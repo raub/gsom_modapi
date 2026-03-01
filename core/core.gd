@@ -11,6 +11,7 @@ const __ActionJump: StringName = &"move_jump"
 const __ActionToggleMouse: StringName = &"move_toggle_mouse"
 const __ActionShootPrimary: StringName = &"shoot_primary"
 const __ActionShootSecondary: StringName = &"shoot_secondary"
+const __ActionReload: StringName = &"weapon_reload"
 
 var __menu: UiMenu = null
 var __svc_network: GsomNetworkImpl = null
@@ -139,6 +140,7 @@ func __ensure_runtime_input_actions() -> void:
 	__ensure_input_action_keys(__ActionMoveBackward, [KEY_S, KEY_DOWN])
 	__ensure_input_action_keys(__ActionJump, [KEY_SPACE])
 	__ensure_input_action_keys(__ActionToggleMouse, [KEY_ESCAPE])
+	__ensure_input_action_keys(__ActionReload, [KEY_R])
 	__ensure_input_action_mouse_button(__ActionShootPrimary, MOUSE_BUTTON_LEFT)
 	__ensure_input_action_mouse_button(__ActionShootSecondary, MOUSE_BUTTON_RIGHT)
 

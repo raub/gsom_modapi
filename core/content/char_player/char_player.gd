@@ -12,6 +12,7 @@ var __move_yaw: float = 0.0
 var __aim_pitch: float = 0.0
 var __shoot_primary_held: bool = false
 var __shoot_secondary_held: bool = false
+var __reload_queued: bool = false
 var __is_reserved: bool = false
 var __saved_collision_layer: int = 0
 var __saved_collision_mask: int = 0
@@ -22,6 +23,7 @@ func pawn_reset_actions() -> void:
 	__jump_queued = false
 	__shoot_primary_held = false
 	__shoot_secondary_held = false
+	__reload_queued = false
 
 func pawn_apply_actions(input: CtlPlayer.PlayerInput) -> void:
 	__move_input = input.move.limit_length(1.0)
@@ -31,6 +33,8 @@ func pawn_apply_actions(input: CtlPlayer.PlayerInput) -> void:
 	__aim_pitch = input.pitch
 	__shoot_primary_held = input.shoot_primary
 	__shoot_secondary_held = input.shoot_secondary
+	if input.reload:
+		__reload_queued = true
 
 func pawn_get_aim_yaw() -> float:
 	return __move_yaw
@@ -43,6 +47,11 @@ func pawn_is_shoot_primary_held() -> bool:
 
 func pawn_is_shoot_secondary_held() -> bool:
 	return __shoot_secondary_held
+
+func pawn_consume_reload_queued() -> bool:
+	var queued: bool = __reload_queued
+	__reload_queued = false
+	return queued
 
 func pawn_set_reserved(reserved: bool) -> void:
 	if __is_reserved == reserved:

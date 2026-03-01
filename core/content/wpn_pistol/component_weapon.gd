@@ -7,6 +7,7 @@ const ATTR_DAMAGE: StringName = &"damage"
 const ATTR_FIRE_RATE: StringName = &"fire_rate"
 const CLIP_SIZE: int = 17
 const RESERVE_AMMO: int = 200
+const RELOAD_TIME: float = 1.2
 const RANGE: float = 2048.0
 const EYE_HEIGHT: float = 1.55
 const PRIMARY_INTERVAL: float = 0.3
@@ -20,37 +21,112 @@ enum FireMode {
 	SECONDARY,
 }
 
-var __next_attack_time_s: float = 0.0
+func _ready() -> void:
+	primary_ammo_kind = &"ammo_9mm"
+	secondary_ammo_kind = &""
+	default_ammo = RESERVE_AMMO
+	if clip < 0:
+		clip = CLIP_SIZE
 
-func weapon_get_pickup_state() -> Dictionary:
+func get_pickup_state() -> Dictionary:
 	return {
 		"ammo_loaded": CLIP_SIZE,
 		"ammo_stored": RESERVE_AMMO,
 	}
 
-func weapon_fire_tick(
+func post_frame(
 	owner_replicator: IGsomPawn,
 	owner_pawn: Node3D,
-	now_s: float,
-	primary_held: bool,
-	secondary_held: bool,
-	ammo_loaded: int,
-) -> Variant:
+	ammo_state: Dictionary,
+) -> Dictionary:
 	var pawn: CharPlayer = owner_pawn as CharPlayer
 	if !owner_replicator or !pawn:
-		return ammo_loaded
+		return ammo_state.duplicate()
+
+	var now_s: float = float(Time.get_ticks_usec()) / 1000000.0
+	var primary_held: bool = pawn.pawn_is_shoot_primary_held()
+	var secondary_held: bool = pawn.pawn_is_shoot_secondary_held()
+	var reload_pressed: bool = pawn.pawn_consume_reload_queued()
+
+	var ammo_loaded: int = __read_ammo_value(ammo_state, "ammo_loaded", clip)
+	var ammo_stored: int = __read_ammo_value(ammo_state, "ammo_stored", 0)
+	clip = ammo_loaded
+
+	if in_reload and now_s >= next_primary_attack_s:
+		var reloaded: Dictionary = __finish_reload(ammo_stored)
+		ammo_loaded = reloaded["ammo_loaded"]
+		ammo_stored = reloaded["ammo_stored"]
+		clip = ammo_loaded
+
+	if in_reload:
+		return __pack_ammo(ammo_loaded, ammo_stored)
+
+	var should_auto_reload: bool = ammo_loaded <= 0 and ammo_stored > 0
+	var should_reload: bool = reload_pressed or should_auto_reload
+	if should_reload and __can_start_reload(ammo_loaded, ammo_stored):
+		__start_reload(now_s)
+		return __pack_ammo(ammo_loaded, ammo_stored)
+
 	var fire_mode: FireMode = __pick_fire_mode(primary_held, secondary_held)
 	if fire_mode == FireMode.NONE:
-		return ammo_loaded
+		return __pack_ammo(ammo_loaded, ammo_stored)
 	if ammo_loaded <= 0:
-		return ammo_loaded
-	if now_s < __next_attack_time_s:
-		return ammo_loaded
+		if ammo_stored > 0 and __can_start_reload(ammo_loaded, ammo_stored):
+			__start_reload(now_s)
+		return __pack_ammo(ammo_loaded, ammo_stored)
 
-	__next_attack_time_s = now_s + __get_fire_interval(fire_mode)
+	var can_fire: bool = false
+	if fire_mode == FireMode.PRIMARY:
+		can_fire = now_s >= next_primary_attack_s
+	else:
+		can_fire = now_s >= next_secondary_attack_s
+	if !can_fire:
+		return __pack_ammo(ammo_loaded, ammo_stored)
+
+	var next_attack: float = now_s + __get_fire_interval(fire_mode)
+	next_primary_attack_s = next_attack
+	next_secondary_attack_s = next_attack
+	next_idle_s = next_attack
 	__play_muzzle_flash()
 	__fire_hitscan(owner_replicator, pawn, fire_mode)
-	return maxi(0, ammo_loaded - 1)
+	ammo_loaded = maxi(0, ammo_loaded - 1)
+	clip = ammo_loaded
+	if ammo_loaded <= 0 and ammo_stored > 0 and __can_start_reload(ammo_loaded, ammo_stored):
+		__start_reload(now_s)
+	return __pack_ammo(ammo_loaded, ammo_stored)
+
+func __can_start_reload(ammo_loaded: int, ammo_stored: int) -> bool:
+	return ammo_loaded < CLIP_SIZE and ammo_stored > 0 and !in_reload
+
+func __start_reload(now_s: float) -> void:
+	in_reload = true
+	next_primary_attack_s = now_s + RELOAD_TIME
+	next_secondary_attack_s = next_primary_attack_s
+	next_idle_s = next_primary_attack_s
+
+func __finish_reload(ammo_stored: int) -> Dictionary:
+	var need: int = maxi(0, CLIP_SIZE - clip)
+	if need <= 0 or ammo_stored <= 0:
+		in_reload = false
+		return __pack_ammo(clip, ammo_stored)
+	var transfer: int = mini(need, ammo_stored)
+	clip += transfer
+	ammo_stored -= transfer
+	in_reload = false
+	return __pack_ammo(clip, ammo_stored)
+
+func __pack_ammo(ammo_loaded: int, ammo_stored: int) -> Dictionary:
+	return {
+		"ammo_loaded": maxi(0, ammo_loaded),
+		"ammo_stored": maxi(0, ammo_stored),
+	}
+
+func __read_ammo_value(state: Dictionary, key: String, fallback: int) -> int:
+	var value_v: Variant = state.get(key, fallback)
+	if typeof(value_v) == TYPE_INT:
+		var value_i: int = value_v
+		return maxi(0, value_i)
+	return maxi(0, fallback)
 
 func __pick_fire_mode(primary_held: bool, secondary_held: bool) -> FireMode:
 	if secondary_held:

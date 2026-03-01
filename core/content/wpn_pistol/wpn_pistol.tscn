@@ -45,4 +45,4 @@ mesh = SubResource("PrismMesh_v3pfg")
 [node name="MuzzleLight" type="OmniLight3D" parent="MuzzleFlash"]
 light_color = Color(0.9538334, 0.97, 0.7275, 1)
 light_energy = 2.0
-omni_range = 2.0
+omni_attenuation = 1.495

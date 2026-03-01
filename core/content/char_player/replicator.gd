@@ -5,7 +5,7 @@ var __hp: int = 100
 var __ammo_loaded: int = 0
 var __ammo_stored: int = 0
 var __inventory_item_ids: Array[StringName] = []
-var __equipped_weapon_component: Node = null
+var __equipped_weapon_component: GsomComponentWeapon = null
 
 func _cl_ready() -> void:
 	__apply_spawn_init()
@@ -259,49 +259,35 @@ func __add_item(
 
 func __tick_local_weapon_fire(pawn: CharPlayer) -> void:
 	__sync_equipped_weapon_component()
-	if !__equipped_weapon_component or !is_instance_valid(__equipped_weapon_component):
+	if !__equipped_weapon_component:
 		return
-	if !__equipped_weapon_component.has_method("weapon_fire_tick"):
-		return
-	if !pawn.pawn_is_shoot_primary_held() and !pawn.pawn_is_shoot_secondary_held():
-		return
-	var now_s: float = float(Time.get_ticks_usec()) / 1000000.0
-	var next_ammo_loaded_v: Variant = __equipped_weapon_component.call(
-		"weapon_fire_tick",
+	var ammo_state_in: Dictionary = {
+		"ammo_loaded": __ammo_loaded,
+		"ammo_stored": __ammo_stored,
+	}
+	var ammo_state_v: Variant = __equipped_weapon_component.post_frame(
 		self,
 		pawn,
-		now_s,
-		pawn.pawn_is_shoot_primary_held(),
-		pawn.pawn_is_shoot_secondary_held(),
-		__ammo_loaded,
+		ammo_state_in,
 	)
-	if typeof(next_ammo_loaded_v) == TYPE_INT:
-		var ammo_loaded_i: int = next_ammo_loaded_v
+	if typeof(ammo_state_v) != TYPE_DICTIONARY:
+		return
+	var ammo_state: Dictionary = ammo_state_v
+	var ammo_loaded_v: Variant = ammo_state.get("ammo_loaded", __ammo_loaded)
+	if typeof(ammo_loaded_v) == TYPE_INT:
+		var ammo_loaded_i: int = ammo_loaded_v
 		__ammo_loaded = maxi(0, ammo_loaded_i)
-	elif typeof(next_ammo_loaded_v) == TYPE_FLOAT:
-		var ammo_loaded_f: float = next_ammo_loaded_v
-		__ammo_loaded = maxi(0, int(roundf(ammo_loaded_f)))
-	elif typeof(next_ammo_loaded_v) == TYPE_DICTIONARY:
-		var as_dict: Dictionary = next_ammo_loaded_v
-		var ammo_loaded_v: Variant = as_dict.get("ammo_loaded", __ammo_loaded)
-		if typeof(ammo_loaded_v) == TYPE_INT:
-			var ammo_loaded_i: int = ammo_loaded_v
-			__ammo_loaded = maxi(0, ammo_loaded_i)
-		elif typeof(ammo_loaded_v) == TYPE_FLOAT:
-			var ammo_loaded_f: float = ammo_loaded_v
-			__ammo_loaded = maxi(0, int(roundf(ammo_loaded_f)))
+	var ammo_stored_v: Variant = ammo_state.get("ammo_stored", __ammo_stored)
+	if typeof(ammo_stored_v) == TYPE_INT:
+		var ammo_stored_i: int = ammo_stored_v
+		__ammo_stored = maxi(0, ammo_stored_i)
 
 func __sync_equipped_weapon_component() -> void:
 	var controller: CtlPlayer = __get_owner_controller()
 	if !controller:
 		__equipped_weapon_component = null
 		return
-	var component: Node = controller.controller_get_equipped_weapon_component()
-	
-	if !component or !is_instance_valid(component):
-		__equipped_weapon_component = null
-		return
-	__equipped_weapon_component = component
+	__equipped_weapon_component = controller.controller_get_equipped_weapon_component()
 
 func __get_owner_controller() -> CtlPlayer:
 	if player_id == IGsomNetwork.NET_ID_EMPTY:

@@ -9,6 +9,7 @@ signal inventory_changed(item_ids: Array[StringName])
 @onready var __ammo: Label = $Hud/Ammo
 @onready var __hp: Label = $Hud/Hp
 @onready var __flash: ColorRect = $Hud/Flash
+@onready var __cross: CenterContainer = $Hud/CrossContainer
 
 ## This node captures player controls and applies the actions.
 ## In terms of Position - it follows the currently controlled pawn.
@@ -21,6 +22,7 @@ class PlayerInput extends RefCounted:
 	var pitch: float = 0.0
 	var shoot_primary: bool = false
 	var shoot_secondary: bool = false
+	var reload: bool = false
 
 class PlayerActions extends RefCounted:
 	var yaw: float = 0.0
@@ -40,9 +42,9 @@ const __ACTION_JUMP: StringName = &"move_jump"
 const __ACTION_TOGGLEMOUSE: StringName = &"move_toggle_mouse"
 const __ACTION_SHOOT_PRIMARY: StringName = &"shoot_primary"
 const __ACTION_SHOOT_SECONDARY: StringName = &"shoot_secondary"
+const __ACTION_RELOAD: StringName = &"weapon_reload"
 const __ITEM_LOG_LINE_LIFETIME: float = 3.0
 const __DEFAULT_STUB_HP: int = 100
-const __WeaponComponentScript: Script = preload("res://core/components/component_weapon.gd")
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -60,7 +62,7 @@ var __item_log_countdown: float = -1.0
 var __flash_tween: Tween = null
 var __view_model_item_id: StringName = &""
 var __view_model_instance: Node = null
-var __view_model_weapon_component: Node = null
+var __view_model_weapon_component: GsomComponentWeapon = null
 var __hp_value: int = __DEFAULT_STUB_HP
 var __ammo_loaded_value: int = 0
 var __ammo_stored_value: int = 0
@@ -114,11 +116,7 @@ func controller_set_inventory_ids(item_ids: Array[StringName]) -> void:
 func controller_get_inventory_ids() -> Array[StringName]:
 	return __inventory_item_ids.duplicate()
 
-func controller_get_equipped_weapon_component() -> Node:
-	if !__view_model_weapon_component:
-		return null
-	if !is_instance_valid(__view_model_weapon_component):
-		return null
+func controller_get_equipped_weapon_component() -> GsomComponentWeapon:
 	return __view_model_weapon_component
 
 func controller_set_hp(value: int) -> void:
@@ -162,6 +160,7 @@ func controller_local_tick(_delta: float) -> Variant:
 	input.pitch = __pitch
 	input.shoot_primary = Input.is_action_pressed(__ACTION_SHOOT_PRIMARY)
 	input.shoot_secondary = Input.is_action_pressed(__ACTION_SHOOT_SECONDARY)
+	input.reload = Input.is_action_just_pressed(__ACTION_RELOAD)
 	return input
 
 func controller_compose_actions(delta: float) -> PlayerActions:
@@ -299,10 +298,10 @@ func __refresh_view_model() -> void:
 		var as_3d: Node3D = instance as Node3D
 		as_3d.transform = Transform3D.IDENTITY
 
-func __find_weapon_component(instance: Node) -> Node:
+func __find_weapon_component(instance: Node) -> GsomComponentWeapon:
 	for child: Node in instance.get_children():
 		if child is GsomComponentWeapon:
-			return child
+			return child as GsomComponentWeapon
 	return null
 
 func __push_item_log(line: String) -> void:
