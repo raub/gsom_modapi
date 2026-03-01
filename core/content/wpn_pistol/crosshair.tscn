@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://by40k2d0hcl32"]
 
-[ext_resource type="Texture2D" uid="uid://cjal6263u00xt" path="res://core/content/wpn_pistol/crosshair012.png" id="1_cy843"]
+[ext_resource type="Texture2D" uid="uid://cjal6263u00xt" path="res://core/content/wpn_pistol/textures/crosshair012.png" id="1_cy843"]
 
 [node name="Control" type="Control"]
 custom_minimum_size = Vector2(96, 96)

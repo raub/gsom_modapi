@@ -23,6 +23,7 @@ var __has_saved_collision: bool = false
 var __world_weapon_item_id: StringName = &""
 var __world_weapon_hidden: bool = false
 var __world_weapon_instance: Node = null
+var __world_weapon_component: GsomComponentWeapon = null
 var __is_local_owned: bool = false
 
 func pawn_reset_actions() -> void:
@@ -96,9 +97,21 @@ func pawn_play_world_weapon_flash() -> void:
 		return
 	if __world_weapon_hidden:
 		return
+	if __world_weapon_component:
+		__world_weapon_component.play_shot_fx()
+		return
 	if !__world_weapon_instance.has_method("weapon_play_muzzle_flash"):
 		return
 	__world_weapon_instance.call("weapon_play_muzzle_flash")
+
+func pawn_play_world_weapon_hit_fx(at: Vector3) -> void:
+	if !__world_weapon_instance:
+		return
+	if __world_weapon_component:
+		__world_weapon_component.play_hit_fx(at)
+		return
+	if __world_weapon_instance.has_method("weapon_play_sfx_hit"):
+		__world_weapon_instance.call("weapon_play_sfx_hit", at)
 
 func pawn_tick(delta: float) -> void:
 	if __is_reserved:
@@ -126,6 +139,7 @@ func __refresh_world_weapon_instance() -> void:
 	if __world_weapon_instance:
 		__world_weapon_instance.queue_free()
 		__world_weapon_instance = null
+	__world_weapon_component = null
 	if !__hand:
 		return
 	if __world_weapon_item_id == &"":
@@ -145,6 +159,7 @@ func __refresh_world_weapon_instance() -> void:
 		var instance_3d: Node3D = instance as Node3D
 		instance_3d.transform = Transform3D.IDENTITY
 	__world_weapon_instance = instance
+	__world_weapon_component = __find_weapon_component(instance)
 	__set_world_weapon_hidden(__world_weapon_hidden)
 
 func __set_world_weapon_hidden(hidden: bool) -> void:
@@ -153,3 +168,12 @@ func __set_world_weapon_hidden(hidden: bool) -> void:
 	if __world_weapon_instance is Node3D:
 		var instance_3d: Node3D = __world_weapon_instance as Node3D
 		instance_3d.visible = !hidden
+
+func __find_weapon_component(node: Node) -> GsomComponentWeapon:
+	if node is GsomComponentWeapon:
+		return node as GsomComponentWeapon
+	for child: Node in node.get_children():
+		var found: GsomComponentWeapon = __find_weapon_component(child)
+		if found:
+			return found
+	return null

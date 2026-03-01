@@ -1,6 +1,7 @@
 extends IGsomPawn
 
 const __EventWeaponFireFx: StringName = &"weapon_fire_fx"
+const __EventWeaponHitFx: StringName = &"weapon_hit_fx"
 const __EventStatusSync: StringName = &"status_sync"
 
 var __sv_reserved: bool = false
@@ -105,15 +106,26 @@ func _sv_read_event(peer: IGsomPeer, e: Event) -> void:
 	if e.kind == __EventWeaponFireFx:
 		__sv_read_event_weapon_fire_fx(peer)
 		return
+	if e.kind == __EventWeaponHitFx:
+		__sv_read_event_weapon_hit_fx(peer, e)
+		return
 
 func _cl_read_event(e: Event) -> void:
 	if !e:
 		return
+	var is_local_owned_active: bool = __check_owned_by_local_player() and !__sv_reserved
 	if e.kind == __EventStatusSync:
 		__cl_apply_status_sync_event(e)
 		return
 	if e.kind == __EventWeaponFireFx:
+		if is_local_owned_active:
+			return
 		__play_world_weapon_fire_fx()
+		return
+	if e.kind == __EventWeaponHitFx:
+		if is_local_owned_active:
+			return
+		__cl_apply_weapon_hit_fx_event(e)
 
 func __sv_read_event_give_item(peer: IGsomPeer, e: Event) -> void:
 	if !peer or peer._get_identity() != net.get_host_identity():
@@ -162,6 +174,20 @@ func __sv_read_event_weapon_fire_fx(peer: IGsomPeer) -> void:
 	if !__check_peer_owns_source_pawn(peer, net_id):
 		return
 	__broadcast_world_weapon_fire_fx()
+
+func __sv_read_event_weapon_hit_fx(peer: IGsomPeer, e: Event) -> void:
+	if !peer:
+		return
+	if !__check_peer_owns_source_pawn(peer, net_id):
+		return
+	if typeof(e.data) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = e.data
+	var at_v: Variant = data.get("at", null)
+	if typeof(at_v) != TYPE_VECTOR3:
+		return
+	var at: Vector3 = at_v
+	__broadcast_world_weapon_hit_fx(at)
 
 func get_inventory_item_ids() -> Array[StringName]:
 	return __inventory_item_ids.duplicate()
@@ -387,6 +413,12 @@ func __play_world_weapon_fire_fx() -> void:
 		return
 	pawn.pawn_play_world_weapon_flash()
 
+func __play_world_weapon_hit_fx(at: Vector3) -> void:
+	var pawn: CharPlayer = target as CharPlayer
+	if !pawn:
+		return
+	pawn.pawn_play_world_weapon_hit_fx(at)
+
 func __broadcast_world_weapon_fire_fx() -> void:
 	if !net.check_is_host():
 		return
@@ -394,11 +426,31 @@ func __broadcast_world_weapon_fire_fx() -> void:
 	fire_event.kind = __EventWeaponFireFx
 	net._sv_send_event(net_id, fire_event)
 
+func __broadcast_world_weapon_hit_fx(at: Vector3) -> void:
+	if !net.check_is_host():
+		return
+	var ev: Event = Event.new()
+	ev.kind = __EventWeaponHitFx
+	ev.data = {
+		"at": at,
+	}
+	net._sv_send_event(net_id, ev)
+
 func __cl_apply_status_sync_event(e: Event) -> void:
 	if typeof(e.data) != TYPE_DICTIONARY:
 		return
 	var data: Dictionary = e.data
 	__apply_status_snapshot(data)
+
+func __cl_apply_weapon_hit_fx_event(e: Event) -> void:
+	if typeof(e.data) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = e.data
+	var at_v: Variant = data.get("at", null)
+	if typeof(at_v) != TYPE_VECTOR3:
+		return
+	var at: Vector3 = at_v
+	__play_world_weapon_hit_fx(at)
 
 func __sv_emit_status_sync() -> void:
 	if !net.check_is_host():
@@ -412,3 +464,15 @@ func __sv_emit_status_sync() -> void:
 		"inventory_item_ids": __inventory_item_ids.duplicate(),
 	}
 	net._sv_send_event(net_id, ev)
+
+func _weapon_report_hit_fx(at: Vector3) -> void:
+	__play_world_weapon_hit_fx(at)
+	if net.check_is_host():
+		__broadcast_world_weapon_hit_fx(at)
+	else:
+		var ev: Event = Event.new()
+		ev.kind = __EventWeaponHitFx
+		ev.data = {
+			"at": at,
+		}
+		net._cl_send_event(net_id, ev)

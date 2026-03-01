@@ -21,3 +21,9 @@ func post_frame(
 	ammo_state: Dictionary,
 ) -> Dictionary:
 	return ammo_state.duplicate()
+
+func play_shot_fx() -> void:
+	pass
+
+func play_hit_fx(_at: Vector3) -> void:
+	pass

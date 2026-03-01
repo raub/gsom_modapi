@@ -87,7 +87,7 @@ func post_frame(
 	next_primary_attack_s = next_attack
 	next_secondary_attack_s = next_attack
 	next_idle_s = next_attack
-	__play_muzzle_flash()
+	play_shot_fx()
 	__fire_hitscan(owner_replicator, pawn, fire_mode)
 	ammo_loaded = maxi(0, ammo_loaded - 1)
 	clip = ammo_loaded
@@ -146,13 +146,27 @@ func __get_spread(mode: FireMode) -> float:
 		return PRIMARY_SPREAD
 	return 0.0
 
-func __play_muzzle_flash() -> void:
+func __play_shot_fx() -> void:
 	var weapon_node: Node = get_parent()
 	if !weapon_node:
 		return
-	if !weapon_node.has_method("weapon_play_muzzle_flash"):
+	if weapon_node.has_method("weapon_play_muzzle_flash"):
+		weapon_node.call("weapon_play_muzzle_flash")
+	if weapon_node.has_method("weapon_play_sfx_shot"):
+		weapon_node.call("weapon_play_sfx_shot")
+
+func play_shot_fx() -> void:
+	__play_shot_fx()
+
+func play_hit_fx(at: Vector3) -> void:
+	__play_hit_fx(at)
+
+func __play_hit_fx(at: Vector3) -> void:
+	var weapon_node: Node = get_parent()
+	if !weapon_node:
 		return
-	weapon_node.call("weapon_play_muzzle_flash")
+	if weapon_node.has_method("weapon_play_sfx_hit"):
+		weapon_node.call("weapon_play_sfx_hit", at)
 
 func __fire_hitscan(
 	owner_replicator: IGsomPawn,
@@ -192,6 +206,11 @@ func __fire_hitscan(
 	var hit: Dictionary = space_state.intersect_ray(query)
 	if hit.is_empty():
 		return
+	var at_v: Variant = hit.get("position")
+	if at_v:
+		var at_v3: Vector3 = at_v
+		play_hit_fx(at_v3)
+		__replicate_hit_fx(owner_replicator, at_v3)
 	var victim: IGsomPawn = __find_hit_pawn(owner_replicator.net, hit.get("collider", null))
 	if !victim or victim == owner_replicator:
 		return
@@ -231,3 +250,10 @@ func __find_hit_pawn(net: IGsomNetwork, collider_v: Variant) -> IGsomPawn:
 		if pawn_node == collider_node or pawn_node.is_ancestor_of(collider_node):
 			return pawn
 	return null
+
+func __replicate_hit_fx(owner_replicator: IGsomPawn, at: Vector3) -> void:
+	if !owner_replicator:
+		return
+	if !owner_replicator.has_method("_weapon_report_hit_fx"):
+		return
+	owner_replicator.call("_weapon_report_hit_fx", at)

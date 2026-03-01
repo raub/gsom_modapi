@@ -55,18 +55,13 @@ func _mod_init() -> void:
 	ctl_player.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/ctl_player/ctl_player.tscn")
 	ctl_player.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/ctl_player/replicator.gd")
 
-	var wpn_pistol: GsomModContentWeapon = GsomModContentWeapon.new()
-	wpn_pistol.add_tags([&"core", &"weapon", &"pistol"])
-	wpn_pistol.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/wpn_pistol/wpn_pistol.tscn")
-	wpn_pistol.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/wpn_pistol/replicator.gd")
-	wpn_pistol.set_path_slot(&"crosshair", &"res://core/content/wpn_pistol/crosshair.tscn")
-
+	WpnPistol.register()
+	
 	GsomModapi.register(mode_dungeon)
 	GsomModapi.register(room_labs)
 
 	GsomModapi.register(char_player)
 	GsomModapi.register(ctl_player)
-	GsomModapi.register(wpn_pistol)
 
 func _core_main() -> void:
 	__ensure_runtime_input_actions()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://30ado0snbrh"]
+[gd_scene load_steps=10 format=3 uid="uid://30ado0snbrh"]
 
 [ext_resource type="Script" uid="uid://2b3f8aawe1ql" path="res://core/content/room_labs/room_labs.gd" id="1_nrwq3"]
 [ext_resource type="PackedScene" uid="uid://ce0q38wdo6p7q" path="res://core/content/room_labs/generator/lab_generator.tscn" id="2_hny0t"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://gpek0lrr7x4k" path="res://addons/gsom_modapi/classes/mod_selector.gd" id="4_vb5kb"]
 [ext_resource type="Script" uid="uid://bbvjbyjpy6ogf" path="res://addons/gsom_modapi/classes/mod_query_base.gd" id="5_3g1rx"]
 [ext_resource type="Script" uid="uid://c3pnhonwwknbl" path="res://addons/gsom_modapi/classes/mod_query_filter.gd" id="6_bgrct"]
+[ext_resource type="AudioStream" uid="uid://c8l6nmoasfvr8" path="res://core/content/room_labs/sfx/fluorescent.wav" id="7_vb5kb"]
 
 [sub_resource type="Resource" id="Resource_ohe4b"]
 script = ExtResource("6_bgrct")
@@ -36,3 +37,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.1376457, 0.93862057, 5.8120
 script = ExtResource("3_s685n")
 selector = SubResource("Resource_fhkmp")
 metadata/_custom_type_script = "uid://cvx0hf0mjdvce"
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("7_vb5kb")
+volume_db = -10.0
+autoplay = true
