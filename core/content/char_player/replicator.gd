@@ -1,6 +1,7 @@
 extends IGsomPawn
 
 const __EventWeaponFireFx: StringName = &"weapon_fire_fx"
+const __EventStatusSync: StringName = &"status_sync"
 
 var __sv_reserved: bool = false
 var __hp: int = 100
@@ -61,13 +62,15 @@ func _read_snapshot(snapshot: Variant) -> void:
 	var reserved_v: Variant = data.get("reserved", __sv_reserved)
 	if typeof(reserved_v) == TYPE_BOOL:
 		__sv_reserved = reserved_v
-	__apply_status_snapshot(data)
+	var is_local_owned_active: bool = __check_owned_by_local_player() and !__sv_reserved
+	if !is_local_owned_active:
+		__apply_status_snapshot(data)
 	__apply_reserved_state()
 	__sync_world_weapon_visual()
 	var pawn: CharPlayer = target as CharPlayer
 	if !pawn:
 		return
-	if __check_owned_by_local_player() and !__sv_reserved:
+	if is_local_owned_active:
 		return
 	__apply_motion_snapshot(data)
 
@@ -106,6 +109,9 @@ func _sv_read_event(peer: IGsomPeer, e: Event) -> void:
 func _cl_read_event(e: Event) -> void:
 	if !e:
 		return
+	if e.kind == __EventStatusSync:
+		__cl_apply_status_sync_event(e)
+		return
 	if e.kind == __EventWeaponFireFx:
 		__play_world_weapon_fire_fx()
 
@@ -130,6 +136,7 @@ func __sv_read_event_give_item(peer: IGsomPeer, e: Event) -> void:
 		ammo_stored_override = maxi(0, ammo_stored_i)
 	var item_id_s: StringName = item_id_v
 	__add_item(item_id_s, ammo_loaded_override, ammo_stored_override)
+	__sv_emit_status_sync()
 
 func __sv_read_event_apply_damage(peer: IGsomPeer, e: Event) -> void:
 	if !peer:
@@ -177,6 +184,7 @@ func _sv_apply_damage(amount: float, _source_net_id: int = IGsomNetwork.NET_ID_E
 	if amount_i <= 0:
 		return
 	__hp = maxi(0, __hp - amount_i)
+	__sv_emit_status_sync()
 
 func __check_peer_owns_source_pawn(peer: IGsomPeer, source_pawn_net_id: int) -> bool:
 	if source_pawn_net_id == IGsomNetwork.NET_ID_EMPTY:
@@ -269,6 +277,10 @@ func __apply_status_snapshot(data: Dictionary) -> void:
 	__sync_world_weapon_visual()
 
 func __apply_client_owned_status_snapshot(data: Dictionary) -> void:
+	var snapshot_inventory_ids: Array[StringName] = __extract_inventory_ids_from_snapshot(data)
+	if snapshot_inventory_ids != __inventory_item_ids:
+		return
+
 	var ammo_loaded_v: Variant = data.get("ammo_loaded", __ammo_loaded)
 	if typeof(ammo_loaded_v) == TYPE_INT:
 		var ammo_loaded_i: int = ammo_loaded_v
@@ -278,6 +290,19 @@ func __apply_client_owned_status_snapshot(data: Dictionary) -> void:
 	if typeof(ammo_stored_v) == TYPE_INT:
 		var ammo_stored_i: int = ammo_stored_v
 		__ammo_stored = maxi(0, ammo_stored_i)
+
+func __extract_inventory_ids_from_snapshot(data: Dictionary) -> Array[StringName]:
+	var out: Array[StringName] = []
+	var inventory_v: Variant = data.get("inventory_item_ids", [])
+	if typeof(inventory_v) != TYPE_ARRAY:
+		return out
+	var values: Array = inventory_v
+	for value: Variant in values:
+		if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
+			continue
+		var value_s: StringName = value
+		out.append(value_s)
+	return out
 
 func __add_item(
 	item_id: StringName,
@@ -368,3 +393,22 @@ func __broadcast_world_weapon_fire_fx() -> void:
 	var fire_event: Event = Event.new()
 	fire_event.kind = __EventWeaponFireFx
 	net._sv_send_event(net_id, fire_event)
+
+func __cl_apply_status_sync_event(e: Event) -> void:
+	if typeof(e.data) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = e.data
+	__apply_status_snapshot(data)
+
+func __sv_emit_status_sync() -> void:
+	if !net.check_is_host():
+		return
+	var ev: Event = Event.new()
+	ev.kind = __EventStatusSync
+	ev.data = {
+		"hp": __hp,
+		"ammo_loaded": __ammo_loaded,
+		"ammo_stored": __ammo_stored,
+		"inventory_item_ids": __inventory_item_ids.duplicate(),
+	}
+	net._sv_send_event(net_id, ev)

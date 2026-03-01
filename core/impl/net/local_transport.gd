@@ -145,7 +145,7 @@ func send_to_server(payload: Dictionary) -> void:
 		return
 	if !__enet or !multiplayer.multiplayer_peer:
 		return
-	var packet_type: String = String(payload.get("type", ""))
+	var packet_type: String = payload.get("type", "")
 	if packet_type != "events":
 		__trace("send_to_server type=%s" % packet_type)
 	rpc_id(1, "__rpc_transport_packet", payload)
@@ -157,7 +157,7 @@ func send_to_peer(peer_id: int, payload: Dictionary) -> void:
 		return
 	if peer_id <= 1:
 		return
-	var packet_type: String = String(payload.get("type", ""))
+	var packet_type: String = payload.get("type", "")
 	if packet_type != "events":
 		__trace("send_to_peer peer_id=%d type=%s" % [peer_id, packet_type])
 	rpc_id(peer_id, "__rpc_transport_packet", payload)
@@ -178,7 +178,7 @@ func disconnect_peer(peer_id: int, _reason: String = "") -> void:
 @rpc("any_peer", "reliable")
 func __rpc_transport_packet(payload: Dictionary) -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
-	var packet_type: String = String(payload.get("type", ""))
+	var packet_type: String = payload.get("type", "")
 	if packet_type != "events":
 		__trace("rpc_packet_in from=%d type=%s" % [sender_id, packet_type])
 	packet_received.emit(sender_id, payload)

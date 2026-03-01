@@ -493,7 +493,7 @@ func __on_transport_packet(peer_id: int, payload: Dictionary) -> void:
 	var packet: Dictionary = payload.duplicate(true)
 	packet["__peer_id"] = peer_id
 	__transport_packets.append(packet)
-	var packet_type: String = String(packet.get("type", ""))
+	var packet_type: String = packet.get("type", "")
 	if packet_type != "events":
 		__trace("transport packet queued type=%s peer_id=%d" % [packet_type, peer_id])
 
@@ -590,7 +590,7 @@ func __handle_transport_packet(packet: Dictionary) -> void:
 		return
 	if packet_type == "reject":
 		push_warning("Connection rejected by host: %s" % packet.get("reason", "Rejected."))
-		__trace("client received reject reason=%s" % String(packet.get("reason", "")))
+		__trace("client received reject reason=%s" % packet.get("reason", ""))
 		__rehost_local_transport()
 		return
 	if packet_type == "events":
@@ -1202,6 +1202,20 @@ func demo_join_host(identity: StringName) -> bool:
 		host_identity = &"__pending_host__"
 		return true
 	return false
+
+func demo_disconnect_from_host() -> bool:
+	if check_is_host():
+		return false
+	__auto_join_enabled = false
+	__rehost_local_transport()
+	if !__transport:
+		return false
+	var started: bool = __transport.start_host()
+	if !started:
+		push_error("Failed to restart local host transport after disconnect.")
+		return false
+	__transport.begin_discovery()
+	return true
 
 func __dict_keys_to_string_names(dict: Dictionary) -> Array[StringName]:
 	var out: Array[StringName] = []

@@ -114,6 +114,9 @@ func __load_and_show_menu() -> void:
 	__show_menu_on_load_epoch(__svc_network.local_peer._get_load_epoch())
 
 func __show_menu_on_load_epoch(epoch_id: int) -> void:
+	if !__svc_network.check_is_host():
+		__show_menu()
+		return
 	__trace("__show_menu_on_load_epoch wait epoch=%d" % epoch_id)
 	var wait_started_ms: int = Time.get_ticks_msec()
 	while true:
@@ -151,7 +154,9 @@ func __show_menu() -> void:
 	__menu.modulate = Color(1, 1, 1, 0)
 	GsomModapi.scene.add_child(__menu)
 	
+	__menu.set_network_is_host(__svc_network.check_is_host())
 	__menu.started_new_game.connect(__launch_new_game)
+	__menu.requested_disconnect.connect(__disconnect_from_host)
 	
 	var tween: Tween = GsomModapi.scene.create_tween()
 	tween.set_ease(Tween.EASE_IN)
@@ -190,6 +195,13 @@ func __wait_local_player_then_hide_menu() -> void:
 func __launch_new_game(content_id: StringName) -> void:
 	__trace("__launch_new_game content=%s is_host=%s" % [String(content_id), "true" if __svc_network.check_is_host() else "false"])
 	__svc_network.gamemode_start(content_id)
+
+func __disconnect_from_host() -> void:
+	if __svc_network.check_is_host():
+		return
+	__svc_network.demo_disconnect_from_host()
+	if __menu:
+		__menu.set_network_is_host(true)
 
 func __ensure_runtime_input_actions() -> void:
 	__ensure_input_action_keys(__ActionMoveLeft, [KEY_A, KEY_LEFT])

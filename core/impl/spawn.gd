@@ -61,7 +61,7 @@ func spawn(
 		push_error("Content ID '%s' has invalid replicator '%s'." % [content_id, String(path_replicator)])
 		instance.queue_free()
 		return null
-	var ent: IGsomEntity = replicator.new() as IGsomEntity
+	var ent: IGsomEntity = replicator.new()
 	if !ent:
 		push_error("Content ID '%s' replicator did not create an IGsomEntity." % content_id)
 		instance.queue_free()

@@ -30,3 +30,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.93862057, 5.8120017)
 script = ExtResource("3_s685n")
 selector = SubResource("Resource_fhkmp")
 metadata/_custom_type_script = "uid://cvx0hf0mjdvce"
+
+[node name="GsomModSpawnSelector2" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.1376457, 0.93862057, 5.8120017)
+script = ExtResource("3_s685n")
+selector = SubResource("Resource_fhkmp")
+metadata/_custom_type_script = "uid://cvx0hf0mjdvce"
