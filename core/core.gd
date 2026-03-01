@@ -12,10 +12,18 @@ const __ActionToggleMouse: StringName = &"move_toggle_mouse"
 const __ActionShootPrimary: StringName = &"shoot_primary"
 const __ActionShootSecondary: StringName = &"shoot_secondary"
 const __ActionReload: StringName = &"weapon_reload"
+const __TraceCore: bool = true
 
 var __menu: UiMenu = null
 var __svc_network: GsomNetworkImpl = null
 var __menu_load_resources: Array[StringName] = []
+var __hide_menu_waiting_for_player: bool = false
+var __hide_menu_wait_last_log_ms: int = 0
+
+func __trace(message: String) -> void:
+	if !__TraceCore:
+		return
+	prints("#%d" % OS.get_process_id(), "[CORE]", message)
 
 func _get_version() -> StringName:
 	return &"0.0.1"
@@ -62,6 +70,7 @@ func _mod_init() -> void:
 
 func _core_main() -> void:
 	__ensure_runtime_input_actions()
+	__trace("_core_main started")
 
 	__svc_network = GsomNetworkImpl.new()
 	__svc_network.gamemode_started.connect(__hide_menu)
@@ -69,6 +78,7 @@ func _core_main() -> void:
 	GsomModapi.scene.add_child(__svc_network)
 
 	__menu_load_resources = __build_menu_load_resources()
+	__trace("menu load resources=%d" % __menu_load_resources.size())
 	__svc_network._sv_load_start("menu", __menu_load_resources)
 	
 	var environment: WorldEnvironment = __Environment.instantiate()
@@ -86,6 +96,7 @@ func _core_main() -> void:
 	
 	tween.tween_callback(func () -> void: splash.queue_free())
 	tween.tween_callback(func () -> void:
+		__trace("splash done; waiting menu epoch=%d" % __svc_network.local_peer._get_load_epoch())
 		__show_menu_on_load_epoch(__svc_network.local_peer._get_load_epoch())
 	)
 
@@ -98,22 +109,45 @@ func __build_menu_load_resources() -> Array[StringName]:
 	return resources
 
 func __load_and_show_menu() -> void:
+	__trace("__load_and_show_menu")
 	__svc_network._sv_load_start("menu", __menu_load_resources)
 	__show_menu_on_load_epoch(__svc_network.local_peer._get_load_epoch())
 
 func __show_menu_on_load_epoch(epoch_id: int) -> void:
-	var local_peer: GsomPeerImpl = __svc_network.local_peer
-	if local_peer._get_load_epoch() != epoch_id or local_peer._get_load_progress() < 1.0:
-		__show_menu_on_load_epoch.call_deferred(epoch_id)
-		return
+	__trace("__show_menu_on_load_epoch wait epoch=%d" % epoch_id)
+	var wait_started_ms: int = Time.get_ticks_msec()
+	while true:
+		if !GsomModapi.scene:
+			return
+		var local_peer: GsomPeerImpl = __svc_network.local_peer
+		if local_peer and local_peer._get_load_epoch() >= epoch_id and local_peer._get_load_progress() >= 1.0:
+			__trace("__show_menu_on_load_epoch ready peer_epoch=%d progress=%.3f" % [local_peer._get_load_epoch(), local_peer._get_load_progress()])
+			break
+		if Time.get_ticks_msec() - wait_started_ms > 5000:
+			push_warning(
+				"Forcing menu show after load wait timeout. "
+				+ "epoch=%d peer_epoch=%d progress=%.3f"
+				% [
+					epoch_id,
+					local_peer._get_load_epoch() if local_peer else -1,
+					local_peer._get_load_progress() if local_peer else -1.0,
+				]
+			)
+			__trace("__show_menu_on_load_epoch timeout; forcing menu")
+			break
+		await GsomModapi.scene.get_tree().process_frame
 	__show_menu()
 
 func __show_menu() -> void:
+	if __menu:
+		__trace("__show_menu skipped: already visible")
+		return
 	var menu_scene: PackedScene = load(__PathMenu) as PackedScene
 	if !menu_scene:
 		push_error("Failed to load menu scene '%s'." % __PathMenu)
 		return
 	__menu = menu_scene.instantiate()
+	__trace("__show_menu instantiate menu")
 	__menu.modulate = Color(1, 1, 1, 0)
 	GsomModapi.scene.add_child(__menu)
 	
@@ -124,14 +158,37 @@ func __show_menu() -> void:
 	tween.tween_property(__menu, "modulate", Color(1, 1, 1, 1), 0.2)
 
 func __hide_menu() -> void:
+	if !__svc_network.check_is_host() and __svc_network._get_player(__svc_network.get_local_identity()) == null:
+		var now_ms: int = Time.get_ticks_msec()
+		if now_ms - __hide_menu_wait_last_log_ms > 1000:
+			__hide_menu_wait_last_log_ms = now_ms
+			__trace("__hide_menu waiting: client has no local player yet")
+		if !__hide_menu_waiting_for_player:
+			__hide_menu_waiting_for_player = true
+			__wait_local_player_then_hide_menu.call_deferred()
+		return
+	__hide_menu_waiting_for_player = false
 	if !__menu:
 		push_warning("Menu already hidden.")
 		return
 	__menu.hide()
 	__menu.queue_free()
 	__menu = null
+	__trace("__hide_menu done")
+
+func __wait_local_player_then_hide_menu() -> void:
+	while true:
+		if !__svc_network:
+			__hide_menu_waiting_for_player = false
+			return
+		if __svc_network.check_is_host() or __svc_network._get_player(__svc_network.get_local_identity()) != null:
+			break
+		await GsomModapi.scene.get_tree().process_frame
+	__hide_menu_waiting_for_player = false
+	__hide_menu()
 
 func __launch_new_game(content_id: StringName) -> void:
+	__trace("__launch_new_game content=%s is_host=%s" % [String(content_id), "true" if __svc_network.check_is_host() else "false"])
 	__svc_network.gamemode_start(content_id)
 
 func __ensure_runtime_input_actions() -> void:

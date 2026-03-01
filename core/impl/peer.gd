@@ -94,3 +94,27 @@ func _get_load_epoch() -> int:
 
 func _get_load_progress() -> float:
 	return __progress
+
+func net_pack_state() -> Dictionary:
+	return {
+		"identity": String(_get_identity()),
+		"id": id,
+		"connected": __connected,
+		"load_epoch": __epoch_id,
+		"load_progress": __progress,
+	}
+
+func net_apply_state(state: Dictionary) -> void:
+	var id_v: Variant = state.get("id", id)
+	if typeof(id_v) == TYPE_INT:
+		id = id_v
+	var connected_v: Variant = state.get("connected", __connected)
+	if typeof(connected_v) == TYPE_BOOL:
+		__connected = connected_v
+	var epoch_v: Variant = state.get("load_epoch", __epoch_id)
+	if typeof(epoch_v) == TYPE_INT:
+		__epoch_id = epoch_v
+	var progress_v: Variant = state.get("load_progress", __progress)
+	if typeof(progress_v) == TYPE_FLOAT or typeof(progress_v) == TYPE_INT:
+		var progress_f: float = progress_v
+		__progress = clampf(progress_f, 0.0, 1.0)

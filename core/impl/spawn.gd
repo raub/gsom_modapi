@@ -1,6 +1,8 @@
 extends Node
 class_name SvcSpawn
 
+const __PassiveReplicator: GDScript = preload("res://core/impl/replicator_passive.gd")
+
 ## A scene for each layer: `{ [WORLD]: Node, [ACTORS]: Node, ... }`
 var scenes_by_layer: Dictionary[IGsomNetwork.SpawnLayer, Node] = {}
 
@@ -50,11 +52,20 @@ func spawn(
 	scenes_by_layer[layer].add_child(instance)
 	
 	var path_replicator: StringName = content.get_path_slot(GsomModContent.PATH_REPLICATOR)
+	var replicator: GDScript = null
 	if path_replicator == &"":
+		replicator = __PassiveReplicator
+	else:
+		replicator = load(path_replicator)
+	if !replicator:
+		push_error("Content ID '%s' has invalid replicator '%s'." % [content_id, String(path_replicator)])
+		instance.queue_free()
 		return null
-	
-	var replicator: GDScript = load(path_replicator)
-	var ent: IGsomEntity = replicator.new()
+	var ent: IGsomEntity = replicator.new() as IGsomEntity
+	if !ent:
+		push_error("Content ID '%s' replicator did not create an IGsomEntity." % content_id)
+		instance.queue_free()
+		return null
 	ent.content_id = content_id
 	ent.net_id = net_id
 	ent.layer = layer

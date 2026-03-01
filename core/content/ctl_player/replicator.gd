@@ -20,7 +20,7 @@ func _local_tick(dt: float) -> Variant:
 	return actions
 
 func _apply_actions(actions: Variant) -> void:
-	var typed: CtlPlayer.PlayerActions = actions
+	var typed: CtlPlayer.PlayerActions = __coerce_actions(actions)
 	if !typed:
 		return
 	var ctl: CtlPlayer = target as CtlPlayer
@@ -46,7 +46,7 @@ func _sv_apply_actions(actions: Variant) -> void:
 	__sv_sync_pawn_link()
 	if __sv_reserved:
 		return
-	var typed: CtlPlayer.PlayerActions = actions
+	var typed: CtlPlayer.PlayerActions = __coerce_actions(actions)
 	if !typed:
 		return
 	_apply_actions(typed)
@@ -202,6 +202,27 @@ func __sv_apply_owned_pawn_snapshot(snapshot: Variant) -> void:
 func __call_optional_reserved(entity: IGsomEntity, reserved: bool) -> void:
 	if entity and entity.has_method("_sv_set_reserved"):
 		entity.call("_sv_set_reserved", reserved)
+
+func __coerce_actions(actions: Variant) -> CtlPlayer.PlayerActions:
+	if actions is CtlPlayer.PlayerActions:
+		var typed: CtlPlayer.PlayerActions = actions
+		return typed
+	
+	if typeof(actions) != TYPE_DICTIONARY:
+		return null
+	var data: Dictionary = actions
+	var out: CtlPlayer.PlayerActions = CtlPlayer.PlayerActions.new()
+	var yaw_v: Variant = data.get("yaw", out.yaw)
+	if typeof(yaw_v) == TYPE_FLOAT or typeof(yaw_v) == TYPE_INT:
+		out.yaw = yaw_v
+	var pitch_v: Variant = data.get("pitch", out.pitch)
+	if typeof(pitch_v) == TYPE_FLOAT or typeof(pitch_v) == TYPE_INT:
+		out.pitch = pitch_v
+	var dt_v: Variant = data.get("dt", out.dt)
+	if typeof(dt_v) == TYPE_FLOAT or typeof(dt_v) == TYPE_INT:
+		out.dt = dt_v
+	out.pawn_state = data.get("pawn_state", null)
+	return out
 
 func __push_pawn_status_to_controller() -> void:
 	var ctl: CtlPlayer = target as CtlPlayer

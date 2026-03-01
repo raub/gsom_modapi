@@ -1,12 +1,21 @@
 extends IGsomGameMode
+const __TraceMode: bool = true
+const __START_WAIT_TIMEOUT_S: float = 8.0
 
 var __sv_wait_epoch: int = 0
 var __sv_pending_spawn: bool = false
 var __sv_started: bool = false
+var __sv_wait_log_elapsed: float = 0.0
+var __sv_wait_elapsed: float = 0.0
 
 var __sv_room_content_id: StringName = &""
 var __sv_controller_content_id: StringName = &""
 var __sv_pawn_content_id: StringName = &""
+
+func __trace(message: String) -> void:
+	if !__TraceMode:
+		return
+	prints("#%d" % OS.get_process_id(), "[GM]", message)
 
 func _sv_ready() -> void:
 	__sv_room_content_id = __pick_content_id(&"room", [&"dungeon"])
@@ -16,12 +25,24 @@ func _sv_ready() -> void:
 	__sv_wait_epoch = net.get_local_peer()._get_load_epoch() + 1
 	__sv_pending_spawn = true
 	__sv_started = false
+	__sv_wait_elapsed = 0.0
 	
 	var resources: Array[StringName] = __build_load_resources()
+	__trace(
+		"_sv_ready wait_epoch=%d room=%s ctl=%s pawn=%s resources=%d"
+		% [
+			__sv_wait_epoch,
+			String(__sv_room_content_id),
+			String(__sv_controller_content_id),
+			String(__sv_pawn_content_id),
+			resources.size(),
+		]
+	)
 	net._sv_load_start("dungeon:start", resources)
 
 func _sv_load_start(_label: String) -> void:
 	__sv_started = false
+	__trace("_sv_load_start label=%s" % _label)
 
 func _cl_load_complete() -> void:
 	net._cl_load_complete()
@@ -47,6 +68,14 @@ func _sv_read_event(peer: IGsomPeer, e: Event) -> void:
 func _sv_peer_join(peer: IGsomPeer) -> void:
 	if !peer:
 		return
+	__trace(
+		"_sv_peer_join identity=%s connected=%s started=%s"
+		% [
+			String(peer._get_identity()),
+			"true" if peer._get_connected() else "false",
+			"true" if __sv_started else "false",
+		]
+	)
 	if !__sv_started:
 		return
 	if peer._get_connected():
@@ -56,6 +85,10 @@ func _sv_peer_join(peer: IGsomPeer) -> void:
 func _sv_peer_drop(peer: IGsomPeer) -> void:
 	if !peer:
 		return
+	__trace(
+		"_sv_peer_drop identity=%s started=%s"
+		% [String(peer._get_identity()), "true" if __sv_started else "false"]
+	)
 	if !__sv_started:
 		return
 	__sv_apply_peer_state(peer)
@@ -63,6 +96,14 @@ func _sv_peer_drop(peer: IGsomPeer) -> void:
 func _sv_peer_update(peer: IGsomPeer) -> void:
 	if !peer:
 		return
+	__trace(
+		"_sv_peer_update identity=%s connected=%s started=%s"
+		% [
+			String(peer._get_identity()),
+			"true" if peer._get_connected() else "false",
+			"true" if __sv_started else "false",
+		]
+	)
 	if !__sv_started:
 		return
 	if peer._get_connected():
@@ -73,12 +114,26 @@ func _sv_tick(_dt: float) -> void:
 	if !__sv_pending_spawn or __sv_started:
 		return
 	if !__all_peers_ready(__sv_wait_epoch):
-		return
+		__sv_wait_elapsed += _dt
+		__sv_wait_log_elapsed += _dt
+		if __sv_wait_log_elapsed >= 1.0:
+			__sv_wait_log_elapsed = 0.0
+			__trace("__sv_tick waiting peers epoch=%d %s" % [__sv_wait_epoch, __collect_peer_load_state(__sv_wait_epoch)])
+		if __sv_wait_elapsed < __START_WAIT_TIMEOUT_S:
+			return
+		__trace(
+			"_sv_tick timeout reached (%.1fs), forcing game start despite unready peers"
+			% __sv_wait_elapsed
+		)
+	__sv_wait_log_elapsed = 0.0
+	__sv_wait_elapsed = 0.0
+	__trace("_sv_tick all peers ready for epoch=%d, spawning game start" % __sv_wait_epoch)
 	__sv_started = true
 	__spawn_game_start()
 	__sv_pending_spawn = false
 
 func __spawn_game_start() -> void:
+	__trace("__spawn_game_start connected_peers=%d" % net._get_peers_connected().size())
 	if __sv_room_content_id == &"":
 		push_error("Dungeon mode has no room content with required tags.")
 	else:
@@ -122,6 +177,7 @@ func __sv_possess_player(player: IGsomPlayer, pawn: IGsomPawn) -> void:
 	player._sv_possess_pawn(pawn)
 
 func __sv_ensure_peer_entities(peer_identity: StringName) -> void:
+	__trace("__sv_ensure_peer_entities identity=%s" % String(peer_identity))
 	var player: IGsomPlayer = net._get_player(peer_identity)
 	if !player:
 		player = __sv_spawn_controller(peer_identity)
@@ -133,10 +189,12 @@ func __sv_ensure_peer_entities(peer_identity: StringName) -> void:
 		pawn = __sv_spawn_pawn(peer_identity, spawn_slot_index)
 	if player and pawn:
 		__sv_possess_player(player, pawn)
+		__trace("__sv_ensure_peer_entities possessed peer=%s player=%d pawn=%d" % [String(peer_identity), player.net_id, pawn.net_id])
 
 func __sv_apply_peer_state(peer: IGsomPeer) -> void:
 	var peer_identity: StringName = peer._get_identity()
 	var reserved: bool = !peer._get_connected()
+	__trace("__sv_apply_peer_state identity=%s reserved=%s" % [String(peer_identity), "true" if reserved else "false"])
 	var player: IGsomPlayer = net._get_player(peer_identity)
 	var pawn: IGsomPawn = __sv_get_peer_pawn(peer_identity, player)
 	if player:
@@ -168,6 +226,8 @@ func __sv_spawn_controller(peer_identity: StringName) -> IGsomPlayer:
 	) as IGsomPlayer
 	if !player:
 		push_error("Dungeon mode failed to spawn controller for peer '%s'." % String(peer_identity))
+	else:
+		__trace("__sv_spawn_controller peer=%s net_id=%d" % [String(peer_identity), player.net_id])
 	return player
 
 func __sv_spawn_pawn(peer_identity: StringName, slot_index: int) -> IGsomPawn:
@@ -182,6 +242,8 @@ func __sv_spawn_pawn(peer_identity: StringName, slot_index: int) -> IGsomPawn:
 	) as IGsomPawn
 	if !pawn:
 		push_error("Dungeon mode failed to spawn pawn for peer '%s'." % String(peer_identity))
+	else:
+		__trace("__sv_spawn_pawn peer=%s net_id=%d slot=%d" % [String(peer_identity), pawn.net_id, slot_index])
 	return pawn
 
 func __all_peers_ready(epoch_id: int) -> bool:
@@ -191,6 +253,19 @@ func __all_peers_ready(epoch_id: int) -> bool:
 		if peer._get_load_progress() < 1.0:
 			return false
 	return true
+
+func __collect_peer_load_state(epoch_id: int) -> String:
+	var chunks: Array[String] = []
+	for peer: IGsomPeer in net._get_peers_all():
+		var identity_s: String = String(peer._get_identity())
+		var is_local_s: String = "true" if peer.check_is_local() else "false"
+		var connected_s: String = "true" if peer._get_connected() else "false"
+		var ready_s: String = "true" if peer._get_connected() and peer._get_load_epoch() >= epoch_id and peer._get_load_progress() >= 1.0 else "false"
+		chunks.append(
+			"%s{local=%s connected=%s epoch=%d progress=%.3f ready=%s}"
+			% [identity_s, is_local_s, connected_s, peer._get_load_epoch(), peer._get_load_progress(), ready_s]
+		)
+	return "peers=[" + ", ".join(chunks) + "]"
 
 func __pick_content_id(kind: StringName, required_tags: Array[StringName]) -> StringName:
 	var query: GsomModQueryFilter = GsomModQueryFilter.new()

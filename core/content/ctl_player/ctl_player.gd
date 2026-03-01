@@ -96,6 +96,11 @@ func _exit_tree() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if !__check_local_active():
 		return
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
 		__look_accum += motion.relative
@@ -245,10 +250,7 @@ func __apply_local_camera_state() -> void:
 	__camera.current = is_local_active
 	__hand.visible = is_local_active
 	__hud.visible = __is_local
-	if is_local_active:
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if !is_local_active and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func __setup_hud_nodes() -> void:
