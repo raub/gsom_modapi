@@ -1,5 +1,5 @@
 extends IGsomGameMode
-const __TraceMode: bool = true
+const __TraceMode: bool = false
 const __START_WAIT_TIMEOUT_S: float = 8.0
 
 var __sv_wait_epoch: int = 0

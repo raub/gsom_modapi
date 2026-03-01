@@ -12,7 +12,7 @@ const __ActionToggleMouse: StringName = &"move_toggle_mouse"
 const __ActionShootPrimary: StringName = &"shoot_primary"
 const __ActionShootSecondary: StringName = &"shoot_secondary"
 const __ActionReload: StringName = &"weapon_reload"
-const __TraceCore: bool = true
+const __TraceCore: bool = false
 
 var __menu: UiMenu = null
 var __svc_network: GsomNetworkImpl = null

@@ -4,7 +4,7 @@ class_name GsomNetworkImpl
 const __LocalTransport := preload("res://core/impl/net/local_transport.gd")
 const __ProtocolVersion: int = 1
 const __AutoJoinRetryS: float = 1.0
-const __TraceEnabled: bool = true
+const __TraceEnabled: bool = false
 
 signal gamemode_started()
 signal gamemode_ended()
@@ -239,6 +239,20 @@ func __summarize_packet_events(events: Array[NetEvent]) -> String:
 		]
 	)
 
+func __should_trace_packet_summary(events: Array[NetEvent]) -> bool:
+	for event: NetEvent in events:
+		if event.kind == EventKind.CL_PROGRESS:
+			return true
+		if event.kind == EventKind.CL_RESYNC:
+			return true
+		if event.kind == EventKind.SV_LOAD:
+			return true
+		if event.kind == EventKind.SV_SPAWN:
+			return true
+		if event.kind == EventKind.SV_DESPAWN:
+			return true
+	return false
+
 func __trace_event(stage: String, event: NetEvent) -> void:
 	if !__should_trace_event(event.kind):
 		return
@@ -324,10 +338,11 @@ func __sv_handle_events() -> void:
 			var ev_data: EventDataProgress = e.data
 			var peer_progress: GsomPeerImpl = _get_peer(e.identity) as GsomPeerImpl
 			if peer_progress:
-				__trace(
-					"sv_handle CL_PROGRESS peer=%s epoch=%d progress=%.3f"
-					% [String(e.identity), ev_data.epoch_id, ev_data.progress]
-				)
+				if ev_data.progress <= 0.0 or ev_data.progress >= 1.0:
+					__trace(
+						"sv_handle CL_PROGRESS peer=%s epoch=%d progress=%.3f"
+						% [String(e.identity), ev_data.epoch_id, ev_data.progress]
+					)
 				__shared_progress(peer_progress, ev_data)
 		if e.kind == EventKind.CL_RESYNC:
 			var peer_sync: GsomPeerImpl = _get_peer(e.identity) as GsomPeerImpl
@@ -638,10 +653,11 @@ func __sv_ingest_transport_events(peer_id: int, packet: Dictionary) -> void:
 		return
 	var encoded_events: Variant = packet.get("events", [])
 	var events: Array[NetEvent] = __decode_event_list(encoded_events)
-	__trace(
-		"sv_ingest_transport_events from=%s peer_id=%d %s"
-		% [String(identity), peer_id, __summarize_packet_events(events)]
-	)
+	if __should_trace_packet_summary(events):
+		__trace(
+			"sv_ingest_transport_events from=%s peer_id=%d %s"
+			% [String(identity), peer_id, __summarize_packet_events(events)]
+		)
 	for event: NetEvent in events:
 		event.identity = identity
 		__transport_events_in.append(event)
@@ -683,17 +699,19 @@ func __cl_accept_host(packet: Dictionary) -> void:
 func __cl_ingest_transport_events(packet: Dictionary) -> void:
 	var encoded_events: Variant = packet.get("events", [])
 	var events: Array[NetEvent] = __decode_event_list(encoded_events)
-	__trace("cl_ingest_transport_events %s" % __summarize_packet_events(events))
+	if __should_trace_packet_summary(events):
+		__trace("cl_ingest_transport_events %s" % __summarize_packet_events(events))
 	for event: NetEvent in events:
 		__transport_events_in.append(event)
 
 func __send_transport_events(events: Array[NetEvent]) -> void:
 	if !__transport or events.is_empty():
 		return
-	__trace(
-		"send_transport_events is_host=%s %s"
-		% ["true" if check_is_host() else "false", __summarize_packet_events(events)]
-	)
+	if __should_trace_packet_summary(events):
+		__trace(
+			"send_transport_events is_host=%s %s"
+			% ["true" if check_is_host() else "false", __summarize_packet_events(events)]
+		)
 	var payload: Dictionary = {
 		"type": "events",
 		"events": __encode_event_list(events),

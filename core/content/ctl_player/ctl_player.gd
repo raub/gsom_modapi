@@ -135,8 +135,11 @@ func controller_set_hp(value: int) -> void:
 	var hp_next: int = maxi(0, value)
 	if __hp_value == hp_next:
 		return
+	var took_damage: bool = hp_next < __hp_value and __pawn != null
 	__hp_value = hp_next
 	__refresh_hud_values()
+	if took_damage:
+		__play_damage_flash()
 
 func controller_set_ammo(loaded: int, stored: int) -> void:
 	var loaded_next: int = maxi(0, loaded)
@@ -250,7 +253,7 @@ func __apply_local_camera_state() -> void:
 	__camera.current = is_local_active
 	__hand.visible = is_local_active
 	__hud.visible = __is_local
-	if !is_local_active and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if __is_local and !is_local_active and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func __setup_hud_nodes() -> void:
@@ -388,6 +391,19 @@ func __play_pickup_flash() -> void:
 	__flash_tween.set_trans(Tween.TRANS_SINE)
 	__flash_tween.tween_property(__flash, "modulate", Color(0.7, 1.0, 0.7, 0.3), 0.08)
 	__flash_tween.tween_property(__flash, "modulate", Color(0.7, 1.0, 0.7, 0.0), 0.18)
+	__flash_tween.finished.connect(func() -> void:
+		__flash.hide()
+	)
+
+func __play_damage_flash() -> void:
+	if __flash_tween:
+		__flash_tween.kill()
+	__flash.show()
+	__flash.modulate = Color(1.0, 0.2, 0.2, 0.0)
+	__flash_tween = create_tween()
+	__flash_tween.set_trans(Tween.TRANS_SINE)
+	__flash_tween.tween_property(__flash, "modulate", Color(1.0, 0.2, 0.2, 0.36), 0.07)
+	__flash_tween.tween_property(__flash, "modulate", Color(1.0, 0.2, 0.2, 0.0), 0.22)
 	__flash_tween.finished.connect(func() -> void:
 		__flash.hide()
 	)

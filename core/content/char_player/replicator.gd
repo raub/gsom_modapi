@@ -1,5 +1,7 @@
 extends IGsomPawn
 
+const __EventWeaponFireFx: StringName = &"weapon_fire_fx"
+
 var __sv_reserved: bool = false
 var __hp: int = 100
 var __ammo_loaded: int = 0
@@ -10,12 +12,15 @@ var __equipped_weapon_component: GsomComponentWeapon = null
 func _cl_ready() -> void:
 	__apply_spawn_init()
 	__apply_reserved_state()
+	__sync_world_weapon_visual()
 
 func _sv_ready() -> void:
 	__apply_spawn_init()
 	__apply_reserved_state()
+	__sync_world_weapon_visual()
 
 func _sv_tick(dt: float) -> void:
+	__sync_world_weapon_visual()
 	if __sv_reserved:
 		return
 	if player_id != IGsomNetwork.NET_ID_EMPTY and !__check_owned_by_local_player():
@@ -27,6 +32,7 @@ func _sv_tick(dt: float) -> void:
 	__tick_local_weapon_fire(pawn)
 
 func _cl_tick(dt: float) -> void:
+	__sync_world_weapon_visual()
 	if net.check_is_host():
 		return
 	if __sv_reserved:
@@ -47,6 +53,7 @@ func _read_snapshot(snapshot: Variant) -> void:
 		if __sv_reserved:
 			return
 		__apply_motion_snapshot(data)
+		__apply_client_owned_status_snapshot(data)
 		return
 	var player_id_v: Variant = data.get("player_id", player_id)
 	if typeof(player_id_v) == TYPE_INT:
@@ -56,6 +63,7 @@ func _read_snapshot(snapshot: Variant) -> void:
 		__sv_reserved = reserved_v
 	__apply_status_snapshot(data)
 	__apply_reserved_state()
+	__sync_world_weapon_visual()
 	var pawn: CharPlayer = target as CharPlayer
 	if !pawn:
 		return
@@ -91,6 +99,15 @@ func _sv_read_event(peer: IGsomPeer, e: Event) -> void:
 	if e.kind == &"apply_damage":
 		__sv_read_event_apply_damage(peer, e)
 		return
+	if e.kind == __EventWeaponFireFx:
+		__sv_read_event_weapon_fire_fx(peer)
+		return
+
+func _cl_read_event(e: Event) -> void:
+	if !e:
+		return
+	if e.kind == __EventWeaponFireFx:
+		__play_world_weapon_fire_fx()
 
 func __sv_read_event_give_item(peer: IGsomPeer, e: Event) -> void:
 	if !peer or peer._get_identity() != net.get_host_identity():
@@ -131,6 +148,13 @@ func __sv_read_event_apply_damage(peer: IGsomPeer, e: Event) -> void:
 	if !__check_peer_owns_source_pawn(peer, source_net_id):
 		return
 	_sv_apply_damage(amount, source_net_id)
+
+func __sv_read_event_weapon_fire_fx(peer: IGsomPeer) -> void:
+	if !peer:
+		return
+	if !__check_peer_owns_source_pawn(peer, net_id):
+		return
+	__broadcast_world_weapon_fire_fx()
 
 func get_inventory_item_ids() -> Array[StringName]:
 	return __inventory_item_ids.duplicate()
@@ -242,6 +266,18 @@ func __apply_status_snapshot(data: Dictionary) -> void:
 			item_ids.append(value_s)
 		__inventory_item_ids = item_ids
 	__sync_equipped_weapon_component()
+	__sync_world_weapon_visual()
+
+func __apply_client_owned_status_snapshot(data: Dictionary) -> void:
+	var ammo_loaded_v: Variant = data.get("ammo_loaded", __ammo_loaded)
+	if typeof(ammo_loaded_v) == TYPE_INT:
+		var ammo_loaded_i: int = ammo_loaded_v
+		__ammo_loaded = maxi(0, ammo_loaded_i)
+
+	var ammo_stored_v: Variant = data.get("ammo_stored", __ammo_stored)
+	if typeof(ammo_stored_v) == TYPE_INT:
+		var ammo_stored_i: int = ammo_stored_v
+		__ammo_stored = maxi(0, ammo_stored_i)
 
 func __add_item(
 	item_id: StringName,
@@ -256,11 +292,13 @@ func __add_item(
 	if ammo_stored_override >= 0:
 		__ammo_stored = maxi(0, ammo_stored_override)
 	__sync_equipped_weapon_component()
+	__sync_world_weapon_visual()
 
 func __tick_local_weapon_fire(pawn: CharPlayer) -> void:
 	__sync_equipped_weapon_component()
 	if !__equipped_weapon_component:
 		return
+	var ammo_loaded_before: int = __ammo_loaded
 	var ammo_state_in: Dictionary = {
 		"ammo_loaded": __ammo_loaded,
 		"ammo_stored": __ammo_stored,
@@ -281,6 +319,14 @@ func __tick_local_weapon_fire(pawn: CharPlayer) -> void:
 	if typeof(ammo_stored_v) == TYPE_INT:
 		var ammo_stored_i: int = ammo_stored_v
 		__ammo_stored = maxi(0, ammo_stored_i)
+	if __ammo_loaded < ammo_loaded_before:
+		__play_world_weapon_fire_fx()
+		if net.check_is_host():
+			__broadcast_world_weapon_fire_fx()
+		else:
+			var fire_event: Event = Event.new()
+			fire_event.kind = __EventWeaponFireFx
+			net._cl_send_event(net_id, fire_event)
 
 func __sync_equipped_weapon_component() -> void:
 	var controller: CtlPlayer = __get_owner_controller()
@@ -298,3 +344,27 @@ func __get_owner_controller() -> CtlPlayer:
 	if player.target is not CtlPlayer:
 		return null
 	return player.target as CtlPlayer
+
+func __sync_world_weapon_visual() -> void:
+	var pawn: CharPlayer = target as CharPlayer
+	if !pawn:
+		return
+	var is_local_owned: bool = __check_owned_by_local_player()
+	pawn.pawn_set_local_owned(is_local_owned)
+	var equipped_item_id: StringName = &""
+	if !__inventory_item_ids.is_empty():
+		equipped_item_id = __inventory_item_ids[__inventory_item_ids.size() - 1]
+	pawn.pawn_set_world_weapon_item(equipped_item_id, is_local_owned)
+
+func __play_world_weapon_fire_fx() -> void:
+	var pawn: CharPlayer = target as CharPlayer
+	if !pawn:
+		return
+	pawn.pawn_play_world_weapon_flash()
+
+func __broadcast_world_weapon_fire_fx() -> void:
+	if !net.check_is_host():
+		return
+	var fire_event: Event = Event.new()
+	fire_event.kind = __EventWeaponFireFx
+	net._sv_send_event(net_id, fire_event)
