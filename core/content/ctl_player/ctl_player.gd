@@ -45,6 +45,7 @@ const __ACTION_SHOOT_SECONDARY: StringName = &"shoot_secondary"
 const __ACTION_RELOAD: StringName = &"weapon_reload"
 const __ITEM_LOG_LINE_LIFETIME: float = 3.0
 const __DEFAULT_STUB_HP: int = 100
+const __PATH_SLOT_CROSSHAIR: StringName = &"crosshair"
 
 @onready var __body: Node3D = $Body
 @onready var __head: Node3D = $Body/Head
@@ -63,6 +64,8 @@ var __flash_tween: Tween = null
 var __view_model_item_id: StringName = &""
 var __view_model_instance: Node = null
 var __view_model_weapon_component: GsomComponentWeapon = null
+var __crosshair_item_id: StringName = &""
+var __crosshair_instance: Node = null
 var __hp_value: int = __DEFAULT_STUB_HP
 var __ammo_loaded_value: int = 0
 var __ammo_stored_value: int = 0
@@ -85,6 +88,10 @@ func _exit_tree() -> void:
 		__view_model_instance.queue_free()
 		__view_model_instance = null
 	__view_model_weapon_component = null
+	if __crosshair_instance:
+		__crosshair_instance.queue_free()
+		__crosshair_instance = null
+	__crosshair_item_id = &""
 
 func _unhandled_input(event: InputEvent) -> void:
 	if !__check_local_active():
@@ -248,6 +255,7 @@ func __setup_hud_nodes() -> void:
 	__flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	__flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	__flash.visible = false
+	__cross.hide()
 
 func __on_inventory_changed(previous: Array[StringName], current: Array[StringName]) -> void:
 	for item_id: StringName in current:
@@ -271,38 +279,64 @@ func __refresh_view_model() -> void:
 	var desired_item_id: StringName = &""
 	if !__inventory_item_ids.is_empty():
 		desired_item_id = __inventory_item_ids[__inventory_item_ids.size() - 1]
-	if desired_item_id == __view_model_item_id:
-		return
 
-	__view_model_item_id = desired_item_id
-	if __view_model_instance:
-		__view_model_instance.queue_free()
-		__view_model_instance = null
-	__view_model_weapon_component = null
+	if desired_item_id != __view_model_item_id:
+		__view_model_item_id = desired_item_id
+		if __view_model_instance:
+			__view_model_instance.queue_free()
+			__view_model_instance = null
+		__view_model_weapon_component = null
 
-	if desired_item_id == &"":
-		return
+		if desired_item_id != &"":
+			var content: GsomModContent = GsomModapi.content_by_id(desired_item_id)
+			if content:
+				var scene_path: StringName = content.get_path_slot(GsomModContent.PATH_SCENE)
+				if scene_path != &"":
+					var scene: PackedScene = load(scene_path) as PackedScene
+					if scene:
+						var instance: Node = scene.instantiate()
+						__hand.add_child(instance)
+						__view_model_instance = instance
+						__view_model_weapon_component = __find_weapon_component(instance)
+						if instance is Node3D:
+							var as_3d: Node3D = instance as Node3D
+							as_3d.transform = Transform3D.IDENTITY
 
-	var content: GsomModContent = GsomModapi.content_by_id(desired_item_id)
-	if !content or content.path_scene == &"":
-		return
-	var scene: PackedScene = load(content.path_scene) as PackedScene
-	if !scene:
-		return
-	var instance: Node = scene.instantiate()
-	__hand.add_child(instance)
-	__view_model_instance = instance
-	__view_model_weapon_component = __find_weapon_component(instance)
-	
-	if instance is Node3D:
-		var as_3d: Node3D = instance as Node3D
-		as_3d.transform = Transform3D.IDENTITY
+	__refresh_crosshair(desired_item_id)
 
 func __find_weapon_component(instance: Node) -> GsomComponentWeapon:
 	for child: Node in instance.get_children():
 		if child is GsomComponentWeapon:
 			return child as GsomComponentWeapon
 	return null
+
+func __refresh_crosshair(item_id: StringName) -> void:
+	if item_id == __crosshair_item_id:
+		return
+	__crosshair_item_id = item_id
+	if __crosshair_instance:
+		__crosshair_instance.queue_free()
+		__crosshair_instance = null
+	__cross.hide()
+
+	if item_id == &"":
+		return
+	var content: GsomModContent = GsomModapi.content_by_id(item_id)
+	if !content:
+		return
+	var crosshair_path: StringName = content.get_path_slot(__PATH_SLOT_CROSSHAIR)
+	if crosshair_path == &"":
+		return
+	var crosshair_scene: PackedScene = load(crosshair_path) as PackedScene
+	if !crosshair_scene:
+		return
+	var instance: Node = crosshair_scene.instantiate()
+	if !(instance is Control):
+		instance.queue_free()
+		return
+	__cross.add_child(instance)
+	__crosshair_instance = instance
+	__cross.show()
 
 func __push_item_log(line: String) -> void:
 	if line.strip_edges() == "":

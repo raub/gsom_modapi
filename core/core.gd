@@ -25,9 +25,9 @@ func _mod_init() -> void:
 	mode_dungeon.ui_title = "Escape"
 	mode_dungeon.ui_tooltip = "Play corridor-shooter mode in research labs."
 	mode_dungeon.ui_summary = "Clear rooms and corridors to escape the lab complex."
-	mode_dungeon.path_thumbnail = &"res://core/content/mode_dungeon/dungeon.png"
-	mode_dungeon.path_scene = &"res://core/content/mode_dungeon/mode_dungeon.tscn"
-	mode_dungeon.path_replicator = &"res://core/content/mode_dungeon/replicator.gd"
+	mode_dungeon.set_path_slot(GsomModContent.PATH_THUMBNAIL, &"res://core/content/mode_dungeon/dungeon.png")
+	mode_dungeon.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/mode_dungeon/mode_dungeon.tscn")
+	mode_dungeon.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/mode_dungeon/replicator.gd")
 	mode_dungeon.dep_queries = [
 		GsomModQueryFilter.from_tags_all([&"dungeon", &"always"]),
 		GsomModQueryFilter.from_tags_all([&"player", &"fps"]),
@@ -35,22 +35,23 @@ func _mod_init() -> void:
 	
 	var room_labs: GsomModContentRoom = GsomModContentRoom.new()
 	room_labs.add_tags([&"core", &"dungeon"])
-	room_labs.path_scene = &"res://core/content/room_labs/room_labs.tscn"
+	room_labs.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/room_labs/room_labs.tscn")
 
 	var char_player: GsomModContentCharacter = GsomModContentCharacter.new()
 	char_player.add_tags([&"core", &"dungeon", &"character", &"always"])
-	char_player.path_scene = &"res://core/content/char_player/char_player.tscn"
-	char_player.path_replicator = &"res://core/content/char_player/replicator.gd"
+	char_player.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/char_player/char_player.tscn")
+	char_player.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/char_player/replicator.gd")
 
 	var ctl_player: GsomModContentController = GsomModContentController.new()
 	ctl_player.add_tags([&"core", &"player", &"fps"])
-	ctl_player.path_scene = &"res://core/content/ctl_player/ctl_player.tscn"
-	ctl_player.path_replicator = &"res://core/content/ctl_player/replicator.gd"
+	ctl_player.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/ctl_player/ctl_player.tscn")
+	ctl_player.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/ctl_player/replicator.gd")
 
 	var wpn_pistol: GsomModContentWeapon = GsomModContentWeapon.new()
 	wpn_pistol.add_tags([&"core", &"weapon", &"pistol"])
-	wpn_pistol.path_scene = &"res://core/content/wpn_pistol/wpn_pistol.tscn"
-	wpn_pistol.path_replicator = &"res://core/content/wpn_pistol/replicator.gd"
+	wpn_pistol.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/wpn_pistol/wpn_pistol.tscn")
+	wpn_pistol.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/wpn_pistol/replicator.gd")
+	wpn_pistol.set_path_slot(&"crosshair", &"res://core/content/wpn_pistol/crosshair.tscn")
 
 	GsomModapi.register(mode_dungeon)
 	GsomModapi.register(room_labs)

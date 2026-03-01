@@ -1,0 +1,22 @@
+[gd_scene load_steps=2 format=3 uid="uid://by40k2d0hcl32"]
+
+[ext_resource type="Texture2D" uid="uid://cjal6263u00xt" path="res://core/content/wpn_pistol/crosshair012.png" id="1_cy843"]
+
+[node name="Control" type="Control"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 96.0
+offset_bottom = 96.0
+mouse_filter = 2
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("1_cy843")
+expand_mode = 1

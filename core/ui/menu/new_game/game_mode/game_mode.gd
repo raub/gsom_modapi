@@ -9,7 +9,8 @@ func set_from_content(gamemode: GsomModContent) -> void:
 	tooltip_text = gamemode.ui_tooltip
 	__title.text = gamemode.ui_title
 	__summary.text = gamemode.ui_summary
-	if gamemode.path_thumbnail:
-		var texture: Texture2D = load(gamemode.path_thumbnail)
+	var thumbnail_path: StringName = gamemode.get_path_slot(GsomModContent.PATH_THUMBNAIL)
+	if thumbnail_path != &"":
+		var texture: Texture2D = load(thumbnail_path)
 		__texture_rect.texture = texture
 		

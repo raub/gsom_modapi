@@ -29,20 +29,7 @@ static func traverse_content(
 ) -> Array[StringName]:
 	var result: Array[StringName] = []
 	
-	if content.path_icon:
-		result.append(content.path_icon)
-
-	if content.path_thumbnail:
-		result.append(content.path_thumbnail)
-
-	if content.path_preview:
-		result.append(content.path_preview)
-
-	if content.path_scene:
-		result.append(content.path_scene)
-
-	if content.path_replicator:
-		result.append(content.path_replicator)
+	result.append_array(content.list_paths())
 
 	if content.dep_query:
 		result.append_array(traverse_query(content.dep_query, visited))

@@ -13,6 +13,11 @@ class_name GsomModContent
 ## - [optional] - it's ok to omit implementation.
 
 const ModUtils = preload("../helpers/mod_utils.gd")
+const PATH_ICON: StringName = &"icon"
+const PATH_THUMBNAIL: StringName = &"thumbnail"
+const PATH_PREVIEW: StringName = &"preview"
+const PATH_SCENE: StringName = &"scene"
+const PATH_REPLICATOR: StringName = &"replicator"
 
 # Fix editor revert buttons
 func _property_can_revert(_property: StringName) -> bool:
@@ -23,8 +28,6 @@ var __str_props: Array[StringName] = [
 ]
 var __strn_props: Array[StringName] = [
 	"key",
-	"path_icon", "path_thumbnail", "path_preview",
-	"path_scene", "path_replicator",
 ]
 
 # Fix revert behavior for arrays
@@ -39,6 +42,8 @@ func _property_get_revert(property: StringName) -> Variant:
 		return ""
 	if property in __strn_props:
 		return &""
+	if property == "paths":
+		return _get_default_paths()
 	if property == "key_weight":
 		return 1.0
 	if property == "deps":
@@ -109,45 +114,20 @@ func _get_kind() -> StringName:
 
 @export_category("Res Paths")
 
-## Path to a Texture2D - an icon for lists/slots/buttons.
+## Arbitrary resource paths used by this content.
 ##
-## This is a path, not the resource itself.
-## Storing a resource would load actual assets before it is necessary.
+## Suggested conventional keys:
+## - icon
+## - thumbnail
+## - preview
+## - scene
+## - replicator
 ##
-## Note: don't use UID paths - these won't survive mod PCK.
-@export var path_icon: StringName = &""
-
-## Path to a Texture2D - a preview thumbnail image.
-##
-## This is a path, not the resource itself.
-## Storing a resource would load actual assets before it is necessary.
-##
-## Note: don't use UID paths - these won't survive mod PCK.
-@export var path_thumbnail: StringName = &""
-
-## Path to a PackedScene - a preview scene for UI purposes.
-##
-## This is a path, not the resource itself.
-## Storing a resource would load actual assets before it is necessary.
-##
-## Note: don't use UID paths - these won't survive mod PCK.
-@export var path_preview: StringName = &""
-
-## Path to a PackedScene - the default representation of this content.
-##
-## This is a path, not the resource itself.
-## Storing a resource would load actual assets before it is necessary.
-##
-## Note: don't use UID paths - these won't survive mod PCK.
-@export var path_scene: StringName = &""
-
-## Path to a GDScript - an optional separate script for network replication.
-##
-## This is separated from scene because it may have its own class-specific script.
-## This is a path, not the resource itself.
-##
-## Note: don't use UID paths - these won't survive mod PCK.
-@export var path_replicator: StringName = &""
+## Games and components are free to define more keys (e.g. crosshair).
+## This is a path map, not loaded resources.
+@export var paths: Dictionary[StringName, StringName]:
+	get: return __get_paths()
+	set(v): __set_paths(v)
 
 @export_category("Dependencies")
 
@@ -172,6 +152,7 @@ func _get_kind() -> StringName:
 var __empty_array_query: Array[GsomModQueryBase] = []
 var __empty_array_stringname: Array[StringName] = []
 var __empty_dict: Dictionary[StringName, Variant] = {}
+var __empty_dict_stringname: Dictionary[StringName, StringName] = {}
 
 # Cached value that prevents creating new arrays on every get
 var __tags_cache: Array[StringName] = __empty_array_stringname
@@ -230,6 +211,36 @@ func __set_caps(v: Array[StringName]) -> void:
 func _get_default_caps() -> Array[StringName]:
 	return __empty_array_stringname.duplicate()
 
+# Cached value that prevents creating new objects on every get
+var __paths_cache: Dictionary[StringName, StringName] = {}
+var __has_paths_cache: bool = false
+
+func __get_paths() -> Dictionary[StringName, StringName]:
+	if !__has_paths_cache:
+		__paths_cache = _get_default_paths()
+		__has_paths_cache = true
+	return __paths_cache
+
+func __set_paths(v: Dictionary[StringName, StringName]) -> void:
+	var normalized: Dictionary[StringName, StringName] = {}
+	for key_v: Variant in v.keys():
+		if typeof(key_v) != TYPE_STRING and typeof(key_v) != TYPE_STRING_NAME:
+			continue
+		var value_v: Variant = v[key_v]
+		if typeof(value_v) != TYPE_STRING and typeof(value_v) != TYPE_STRING_NAME:
+			continue
+		var key_s: StringName = key_v
+		var value_s: StringName = value_v
+		if key_s == &"" or value_s == &"":
+			continue
+		normalized[key_s] = value_s
+	__paths_cache = normalized
+	__has_paths_cache = true
+
+## [optional] Redefine this in subclasses
+func _get_default_paths() -> Dictionary[StringName, StringName]:
+	return __empty_dict_stringname.duplicate()
+
 # QoL helpers
 
 ## Is this tag present?
@@ -247,6 +258,29 @@ func has_attr(attr: StringName) -> bool:
 ## Get attribute value or default
 func get_attr(attr_key: StringName, default: Variant = null) -> Variant:
 	return __get_attrs().get(attr_key, default)
+
+## Lookup one resource path by key.
+func get_path_slot(path_key: StringName, default: StringName = &"") -> StringName:
+	return __get_paths().get(path_key, default)
+
+## Set or clear one resource path key.
+func set_path_slot(path_key: StringName, path_value: StringName) -> void:
+	var copy: Dictionary[StringName, StringName] = __get_paths().duplicate()
+	if path_key == &"":
+		return
+	if path_value == &"":
+		copy.erase(path_key)
+	else:
+		copy[path_key] = path_value
+	__set_paths(copy)
+
+## Flat list of all registered resource paths.
+func list_paths() -> Array[StringName]:
+	var result: Array[StringName] = []
+	for value: StringName in __get_paths().values():
+		if value != &"":
+			result.append(value)
+	return result
 
 ## Add more tags
 func add_tags(new_tags: Array[StringName]) -> void:
