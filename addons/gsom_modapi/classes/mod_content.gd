@@ -13,6 +13,10 @@ class_name GsomModContent
 ## - [optional] - it's ok to omit implementation.
 
 const ModUtils = preload("../helpers/mod_utils.gd")
+const TEXT_TITLE: StringName = &"title"
+const TEXT_TOOLTIP: StringName = &"tooltip"
+const TEXT_SUMMARY: StringName = &"summary"
+const TEXT_DESCRIPTION: StringName = &"description"
 const PATH_ICON: StringName = &"icon"
 const PATH_THUMBNAIL: StringName = &"thumbnail"
 const PATH_PREVIEW: StringName = &"preview"
@@ -23,9 +27,6 @@ const PATH_REPLICATOR: StringName = &"replicator"
 func _property_can_revert(_property: StringName) -> bool:
 	return true
 
-var __str_props: Array[StringName] = [
-	"ui_title", "ui_tooltip", "ui_summary", "ui_description",
-]
 var __strn_props: Array[StringName] = [
 	"key",
 ]
@@ -38,10 +39,10 @@ func _property_get_revert(property: StringName) -> Variant:
 		return _get_default_attrs()
 	if property == "caps":
 		return _get_default_caps()
-	if property in __str_props:
-		return ""
 	if property in __strn_props:
 		return &""
+	if property == "texts":
+		return _get_default_texts()
 	if property == "paths":
 		return _get_default_paths()
 	if property == "key_weight":
@@ -98,21 +99,20 @@ func _get_kind() -> StringName:
 	get: return __get_caps()
 	set(v): __set_caps(v)
 
-@export_category("UI Text")
+@export_category("Payload")
 
-## Displayable content name.
-@export var ui_title: String = ""
-
-## Short tooltip, shown on hover.
-@export_multiline var ui_tooltip: String = ""
-
-## Short description, 1–2 lines.
-@export_multiline var ui_summary: String = ""
-
-## Detailed description.
-@export_multiline var ui_description: String = ""
-
-@export_category("Res Paths")
+## Arbitrary text slots used by this content.
+##
+## Suggested conventional keys:
+## - title
+## - tooltip
+## - summary
+## - description
+##
+## Games and components are free to define more keys.
+@export var texts: Dictionary[StringName, String]:
+	get: return __get_texts()
+	set(v): __set_texts(v)
 
 ## Arbitrary resource paths used by this content.
 ##
@@ -152,6 +152,7 @@ func _get_kind() -> StringName:
 var __empty_array_query: Array[GsomModQueryBase] = []
 var __empty_array_stringname: Array[StringName] = []
 var __empty_dict: Dictionary[StringName, Variant] = {}
+var __empty_dict_string: Dictionary[StringName, String] = {}
 var __empty_dict_stringname: Dictionary[StringName, StringName] = {}
 
 # Cached value that prevents creating new arrays on every get
@@ -212,6 +213,38 @@ func _get_default_caps() -> Array[StringName]:
 	return __empty_array_stringname.duplicate()
 
 # Cached value that prevents creating new objects on every get
+var __texts_cache: Dictionary[StringName, String] = {}
+var __has_texts_cache: bool = false
+
+func __get_texts() -> Dictionary[StringName, String]:
+	if !__has_texts_cache:
+		__texts_cache = _get_default_texts()
+		__has_texts_cache = true
+	return __texts_cache
+
+func __set_texts(v: Dictionary[StringName, String]) -> void:
+	var normalized: Dictionary[StringName, String] = {}
+	for key_v: Variant in v.keys():
+		if typeof(key_v) != TYPE_STRING and typeof(key_v) != TYPE_STRING_NAME:
+			continue
+		var value_v: Variant = v[key_v]
+		if typeof(value_v) != TYPE_STRING and typeof(value_v) != TYPE_STRING_NAME:
+			continue
+		var key_s: StringName = key_v
+		var value_s: String = value_v
+		if key_s == &"":
+			continue
+		if value_s.strip_edges() == "":
+			continue
+		normalized[key_s] = value_s
+	__texts_cache = normalized
+	__has_texts_cache = true
+
+## [optional] Redefine this in subclasses
+func _get_default_texts() -> Dictionary[StringName, String]:
+	return __empty_dict_string.duplicate()
+
+# Cached value that prevents creating new objects on every get
 var __paths_cache: Dictionary[StringName, StringName] = {}
 var __has_paths_cache: bool = false
 
@@ -263,6 +296,10 @@ func get_attr(attr_key: StringName, default: Variant = null) -> Variant:
 func get_path_slot(path_key: StringName, default: StringName = &"") -> StringName:
 	return __get_paths().get(path_key, default)
 
+## Lookup one text value by key.
+func get_text_slot(text_key: StringName, default: String = "") -> String:
+	return __get_texts().get(text_key, default)
+
 ## Set or clear one resource path key.
 func set_path_slot(path_key: StringName, path_value: StringName) -> void:
 	var copy: Dictionary[StringName, StringName] = __get_paths().duplicate()
@@ -274,6 +311,17 @@ func set_path_slot(path_key: StringName, path_value: StringName) -> void:
 		copy[path_key] = path_value
 	__set_paths(copy)
 
+## Set or clear one text key.
+func set_text_slot(text_key: StringName, text_value: String) -> void:
+	if text_key == &"":
+		return
+	var copy: Dictionary[StringName, String] = __get_texts().duplicate()
+	if text_value.strip_edges() == "":
+		copy.erase(text_key)
+	else:
+		copy[text_key] = text_value
+	__set_texts(copy)
+
 ## Flat list of all registered resource paths.
 func list_paths() -> Array[StringName]:
 	var result: Array[StringName] = []
@@ -281,6 +329,10 @@ func list_paths() -> Array[StringName]:
 		if value != &"":
 			result.append(value)
 	return result
+
+## Copy of all registered text slots.
+func list_text_slots() -> Dictionary[StringName, String]:
+	return __get_texts().duplicate()
 
 ## Add more tags
 func add_tags(new_tags: Array[StringName]) -> void:

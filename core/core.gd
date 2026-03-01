@@ -22,9 +22,9 @@ func _get_version() -> StringName:
 
 func _mod_init() -> void:
 	var mode_dungeon: GsomModContentGamemode = GsomModContentGamemode.new()
-	mode_dungeon.ui_title = "Escape"
-	mode_dungeon.ui_tooltip = "Play corridor-shooter mode in research labs."
-	mode_dungeon.ui_summary = "Clear rooms and corridors to escape the lab complex."
+	mode_dungeon.set_text_slot(GsomModContent.TEXT_TITLE, "Escape")
+	mode_dungeon.set_text_slot(GsomModContent.TEXT_TOOLTIP, "Play corridor-shooter mode in research labs.")
+	mode_dungeon.set_text_slot(GsomModContent.TEXT_SUMMARY, "Clear rooms and corridors to escape the lab complex.")
 	mode_dungeon.set_path_slot(GsomModContent.PATH_THUMBNAIL, &"res://core/content/mode_dungeon/dungeon.png")
 	mode_dungeon.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/mode_dungeon/mode_dungeon.tscn")
 	mode_dungeon.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/mode_dungeon/replicator.gd")

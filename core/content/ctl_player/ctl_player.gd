@@ -268,8 +268,9 @@ func __on_item_added(item_id: StringName) -> void:
 	var content: GsomModContent = GsomModapi.content_by_id(item_id)
 	var item_name: String = String(item_id)
 	if content:
-		if content.ui_title.strip_edges() != "":
-			item_name = content.ui_title
+		var content_title: String = content.get_text_slot(GsomModContent.TEXT_TITLE)
+		if content_title.strip_edges() != "":
+			item_name = content_title
 		elif content.kind != &"":
 			item_name = String(content.kind)
 	__push_item_log("Picked up: %s" % item_name)

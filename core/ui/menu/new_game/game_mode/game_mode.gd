@@ -6,9 +6,9 @@ class_name UiMenuGameMode
 @onready var __texture_rect: TextureRect = $MarginContainer/HBoxContainer/TextureRect
 
 func set_from_content(gamemode: GsomModContent) -> void:
-	tooltip_text = gamemode.ui_tooltip
-	__title.text = gamemode.ui_title
-	__summary.text = gamemode.ui_summary
+	tooltip_text = gamemode.get_text_slot(GsomModContent.TEXT_TOOLTIP)
+	__title.text = gamemode.get_text_slot(GsomModContent.TEXT_TITLE)
+	__summary.text = gamemode.get_text_slot(GsomModContent.TEXT_SUMMARY)
 	var thumbnail_path: StringName = gamemode.get_path_slot(GsomModContent.PATH_THUMBNAIL)
 	if thumbnail_path != &"":
 		var texture: Texture2D = load(thumbnail_path)

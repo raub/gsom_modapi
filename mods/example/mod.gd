@@ -5,9 +5,9 @@ func _get_version() -> StringName:
 
 func _mod_init() -> void:
 	var mode_openworld: GsomModContentGamemode = GsomModContentGamemode.new()
-	mode_openworld.ui_title = "Extraction"
-	mode_openworld.ui_tooltip = "Play extraction mode in an open-world setting."
-	mode_openworld.ui_summary = "Survive and reach the extraction point."
+	mode_openworld.set_text_slot(GsomModContent.TEXT_TITLE, "Extraction")
+	mode_openworld.set_text_slot(GsomModContent.TEXT_TOOLTIP, "Play extraction mode in an open-world setting.")
+	mode_openworld.set_text_slot(GsomModContent.TEXT_SUMMARY, "Survive and reach the extraction point.")
 	mode_openworld.set_path_slot(
 		GsomModContent.PATH_THUMBNAIL,
 		&"res://mods/example/content/mode_openworld/openworld.png",
@@ -22,9 +22,9 @@ func _mod_init() -> void:
 	)
 	
 	var room_caverns: GsomModContentRoom = GsomModContentRoom.new()
-	room_caverns.ui_title = "Caverns"
-	room_caverns.ui_tooltip = "A vast network of underground tunnels."
-	room_caverns.ui_summary = "A vast network of underground tunnels."
+	room_caverns.set_text_slot(GsomModContent.TEXT_TITLE, "Caverns")
+	room_caverns.set_text_slot(GsomModContent.TEXT_TOOLTIP, "A vast network of underground tunnels.")
+	room_caverns.set_text_slot(GsomModContent.TEXT_SUMMARY, "A vast network of underground tunnels.")
 	room_caverns.set_path_slot(
 		GsomModContent.PATH_THUMBNAIL,
 		&"res://mods/example/content/mode_openworld/openworld.png",
@@ -35,9 +35,9 @@ func _mod_init() -> void:
 	)
 
 	var room_island: GsomModContentRoom = GsomModContentRoom.new()
-	room_island.ui_title = "Island"
-	room_island.ui_tooltip = "A floating island in the middle of nowhere."
-	room_island.ui_summary = "A floating island in the middle of nowhere."
+	room_island.set_text_slot(GsomModContent.TEXT_TITLE, "Island")
+	room_island.set_text_slot(GsomModContent.TEXT_TOOLTIP, "A floating island in the middle of nowhere.")
+	room_island.set_text_slot(GsomModContent.TEXT_SUMMARY, "A floating island in the middle of nowhere.")
 	room_island.set_path_slot(
 		GsomModContent.PATH_THUMBNAIL,
 		&"res://mods/example/content/mode_openworld/openworld.png",

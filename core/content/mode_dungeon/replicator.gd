@@ -102,7 +102,6 @@ func __sv_spawn_items_from_selectors() -> void:
 		var content_id_to_spawn: StringName = selector_node.pick_content_id()
 		if content_id_to_spawn == &"":
 			continue
-		prints("spawning", content_id_to_spawn, selector_node.global_transform.origin)
 		net._sv_spawn(
 			content_id_to_spawn,
 			IGsomNetwork.SpawnLayer.WORLD,
