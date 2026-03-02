@@ -42,3 +42,5 @@ metadata/_custom_type_script = "uid://cvx0hf0mjdvce"
 stream = ExtResource("7_vb5kb")
 volume_db = -10.0
 autoplay = true
+
+[node name="Decal" type="Decal" parent="."]

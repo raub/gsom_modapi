@@ -31,11 +31,9 @@ func weapon_play_muzzle_flash(duration: float = __MUZZLE_FLASH_TIME) -> void:
 	)
 
 func weapon_play_sfx_shot() -> void:
-	pass
-	#SvcAudio.play3d(__SFX_SHOT_1, global_position)
+	SvcAudio.play3d(__SFX_SHOT_1, global_position)
 
 func weapon_play_sfx_hit(at: Vector3) -> void:
-	prints("hit", OS.get_process_id())
 	if randi() % 2:
 		SvcAudio.play3d(__SFX_HIT_1, at)
 	else:

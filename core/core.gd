@@ -41,10 +41,6 @@ func _mod_init() -> void:
 		GsomModQueryFilter.from_tags_all([&"player", &"fps"]),
 	]
 	
-	var room_labs: GsomModContentRoom = GsomModContentRoom.new()
-	room_labs.add_tags([&"core", &"dungeon"])
-	room_labs.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/room_labs/room_labs.tscn")
-
 	var char_player: GsomModContentCharacter = GsomModContentCharacter.new()
 	char_player.add_tags([&"core", &"dungeon", &"character", &"always"])
 	char_player.set_path_slot(GsomModContent.PATH_SCENE, &"res://core/content/char_player/char_player.tscn")
@@ -56,9 +52,9 @@ func _mod_init() -> void:
 	ctl_player.set_path_slot(GsomModContent.PATH_REPLICATOR, &"res://core/content/ctl_player/replicator.gd")
 
 	WpnPistol.register()
+	RoomLabs.register()
 	
 	GsomModapi.register(mode_dungeon)
-	GsomModapi.register(room_labs)
 
 	GsomModapi.register(char_player)
 	GsomModapi.register(ctl_player)

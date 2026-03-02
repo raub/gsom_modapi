@@ -8,15 +8,8 @@ static var mat_cover: StandardMaterial3D
 static var mat_light: StandardMaterial3D
 
 static func prepare() -> void:
-	mat_floor = StandardMaterial3D.new()
-	mat_floor.albedo_color = Color(0.14, 0.16, 0.18)
-	mat_floor.roughness = 0.92
-	mat_floor.metallic = 0.15
-
-	mat_wall = StandardMaterial3D.new()
-	mat_wall.albedo_color = Color(0.57, 0.61, 0.66)
-	mat_wall.roughness = 0.74
-	mat_wall.metallic = 0.1
+	mat_floor = load(&"res://core/content/room_labs/vfx/floor.material")
+	mat_wall = load(&"res://core/content/room_labs/vfx/wall.material")
 
 	mat_trim = StandardMaterial3D.new()
 	mat_trim.albedo_color = Color(0.18, 0.29, 0.38)
